@@ -1,0 +1,8 @@
+{
+  "/page": "app/page.js",
+  "/api/upload/route": "app/api/upload/route.js",
+  "/api/jobs/recent/route": "app/api/jobs/recent/route.js",
+  "/(dashboard)/dashboard/scrub/page": "app/(dashboard)/dashboard/scrub/page.js",
+  "/(dashboard)/dashboard/results/[jobId]/page": "app/(dashboard)/dashboard/results/[jobId]/page.js",
+  "/(dashboard)/dashboard/page": "app/(dashboard)/dashboard/page.js"
+}

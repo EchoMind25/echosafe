@@ -1,0 +1,469 @@
+// ============================================================================
+// ECHO MIND COMPLIANCE - PRISMA SCHEMA
+// Complete database schema for portable architecture
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL") // For migrations with Supabase
+}
+
+// ============================================================================
+// USERS
+// ============================================================================
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  fullName  String   @map("full_name")
+  phone     String?
+  company   String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Subscription
+  subscriptionStatus SubscriptionStatus @default(TRIALING) @map("subscription_status")
+  subscriptionTier   SubscriptionTier   @default(BASE) @map("subscription_tier")
+  stripeCustomerId   String?            @unique @map("stripe_customer_id")
+  stripeSubscriptionId String?          @map("stripe_subscription_id")
+  trialEndsAt        DateTime?          @map("trial_ends_at")
+
+  // Preferences (JSON)
+  preferences Json @default("{\"email_notifications\": true, \"auto_sync_crm\": true, \"include_risky_in_download\": false, \"default_area_codes\": []}")
+
+  // Usage Tracking
+  totalLeadsScrubbed Int       @default(0) @map("total_leads_scrubbed")
+  lastScrubAt        DateTime? @map("last_scrub_at")
+
+  // Security
+  lastLoginAt DateTime? @map("last_login_at")
+  loginCount  Int       @default(0) @map("login_count")
+
+  // Relations
+  areaCodeSubscriptions AreaCodeSubscription[]
+  uploadHistory         UploadHistory[]
+  crmLeads              CrmLead[]
+  crmIntegrations       CrmIntegration[]
+  areaCodeRequests      AreaCodeRequest[]
+  payments              Payment[]
+  analyticsEvents       AnalyticsEvent[]
+  integrationLogs       CrmIntegrationLog[]
+
+  @@index([email])
+  @@index([stripeCustomerId])
+  @@index([subscriptionStatus])
+  @@map("users")
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  TRIALING
+  CANCELED
+  PAST_DUE
+  PAUSED
+}
+
+enum SubscriptionTier {
+  BASE
+  UTAH_ELITE
+  TEAM
+}
+
+// ============================================================================
+// AREA CODE SUBSCRIPTIONS
+// ============================================================================
+
+model AreaCodeSubscription {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  areaCode   String    @map("area_code")
+  subscribedAt DateTime @default(now()) @map("subscribed_at")
+  expiresAt  DateTime? @map("expires_at")
+  status     AreaCodeStatus @default(ACTIVE)
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, areaCode])
+  @@index([userId])
+  @@index([areaCode])
+  @@map("area_code_subscriptions")
+}
+
+enum AreaCodeStatus {
+  ACTIVE
+  EXPIRED
+  PENDING
+}
+
+// ============================================================================
+// DNC REGISTRY
+// ============================================================================
+
+model DncRegistry {
+  id            String   @id @default(uuid())
+  phoneNumber   String   @unique @map("phone_number")
+  areaCode      String   @map("area_code")
+  registeredAt  DateTime @map("registered_at")
+  source        DncSource
+  metadata      Json     @default("{}")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([phoneNumber])
+  @@index([areaCode])
+  @@index([source])
+  @@map("dnc_registry")
+}
+
+enum DncSource {
+  FEDERAL
+  UTAH_STATE
+  MANUAL
+}
+
+// ============================================================================
+// UPLOAD HISTORY
+// ============================================================================
+
+model UploadHistory {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  filename    String
+  fileSize    Int?     @map("file_size")
+  totalLeads  Int      @map("total_leads")
+  
+  // Results
+  cleanLeads      Int @map("clean_leads")
+  dncBlocked      Int @map("dnc_blocked")
+  cautionLeads    Int @map("caution_leads")
+  duplicatesRemoved Int @default(0) @map("duplicates_removed")
+  
+  // Risk Scoring
+  averageRiskScore Decimal? @map("average_risk_score") @db.Decimal(5, 2)
+  complianceRate   Decimal? @map("compliance_rate") @db.Decimal(5, 2)
+  
+  // Files
+  cleanFileUrl    String? @map("clean_file_url")
+  fullReportUrl   String? @map("full_report_url")
+  riskyFileUrl    String? @map("risky_file_url")
+  
+  // Processing
+  processingTimeMs Int?    @map("processing_time_ms")
+  n8nJobId         String? @map("n8n_job_id")
+  status           UploadStatus @default(PROCESSING)
+  errorMessage     String? @map("error_message")
+  
+  // Metadata
+  source         String?
+  areaCodesUsed  String[] @map("area_codes_used")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt(sort: Desc)])
+  @@index([status])
+  @@map("upload_history")
+}
+
+enum UploadStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// ============================================================================
+// CRM LEADS (Built-in CRM)
+// ============================================================================
+
+model CrmLead {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  
+  // Lead Information
+  phoneNumber String   @map("phone_number")
+  firstName   String?  @map("first_name")
+  lastName    String?  @map("last_name")
+  email       String?
+  address     String?
+  city        String?
+  state       String?
+  zipCode     String?  @map("zip_code")
+  
+  // Risk & Compliance
+  riskScore      Int?     @map("risk_score")
+  riskLevel      RiskLevel? @map("risk_level")
+  dncStatus      Boolean  @default(false) @map("dnc_status")
+  lastScrubbed   DateTime? @map("last_scrubbed_at")
+  
+  // CRM Fields
+  status         LeadStatus @default(NEW)
+  source         String?
+  tags           String[]
+  notes          String?
+  assignedTo     String?    @map("assigned_to")
+  
+  // Activity Tracking
+  lastContactAt  DateTime? @map("last_contact_at")
+  nextFollowupAt DateTime? @map("next_followup_at")
+  contactCount   Int       @default(0) @map("contact_count")
+  
+  // Metadata
+  customFields Json      @default("{}") @map("custom_fields")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at") // Soft delete
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([phoneNumber])
+  @@index([status])
+  @@index([riskLevel])
+  @@index([createdAt(sort: Desc)])
+  @@index([deletedAt])
+  @@map("crm_leads")
+}
+
+enum RiskLevel {
+  SAFE
+  CAUTION
+  BLOCKED
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  NURTURING
+  CONVERTED
+  DEAD
+}
+
+// ============================================================================
+// CRM INTEGRATIONS
+// ============================================================================
+
+model CrmIntegration {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  
+  // Integration Details
+  crmType     CrmType
+  crmName     String   @map("crm_name")
+  
+  // Credentials (encrypted in application layer)
+  credentials Json
+  
+  // Field Mapping
+  fieldMapping Json @default("{\"phone_number\": \"phone\", \"first_name\": \"firstName\", \"last_name\": \"lastName\", \"email\": \"email\", \"address\": \"address\", \"custom_fields\": {}}") @map("field_mapping")
+  
+  // Sync Settings
+  syncSettings Json @default("{\"auto_sync\": true, \"sync_risky\": false, \"sync_frequency\": \"immediate\"}") @map("sync_settings")
+  
+  // Status
+  status      IntegrationStatus @default(ACTIVE)
+  lastSyncAt  DateTime? @map("last_sync_at")
+  lastError   String?   @map("last_error")
+  
+  // Metadata
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs CrmIntegrationLog[]
+
+  @@unique([userId, crmType])
+  @@index([userId])
+  @@index([status])
+  @@map("crm_integrations")
+}
+
+enum CrmType {
+  FOLLOWUPBOSS
+  LOFTY
+  KVCORE
+}
+
+enum IntegrationStatus {
+  ACTIVE
+  PAUSED
+  ERROR
+}
+
+// ============================================================================
+// CRM INTEGRATION LOGS
+// ============================================================================
+
+model CrmIntegrationLog {
+  id            String   @id @default(uuid())
+  integrationId String   @map("integration_id")
+  userId        String   @map("user_id")
+  
+  // Sync Details
+  syncType      SyncType
+  leadsSynced   Int      @map("leads_synced")
+  leadsFailed   Int      @default(0) @map("leads_failed")
+  
+  // Status
+  status        SyncStatus
+  errorMessage  String?    @map("error_message")
+  
+  // Metadata
+  startedAt     DateTime   @map("started_at")
+  completedAt   DateTime?  @map("completed_at")
+  durationMs    Int?       @map("duration_ms")
+
+  // Relations
+  integration CrmIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([integrationId])
+  @@index([userId])
+  @@index([startedAt(sort: Desc)])
+  @@map("crm_integration_logs")
+}
+
+enum SyncType {
+  MANUAL
+  AUTO
+}
+
+enum SyncStatus {
+  SUCCESS
+  PARTIAL
+  FAILED
+}
+
+// ============================================================================
+// AREA CODE REQUESTS
+// ============================================================================
+
+model AreaCodeRequest {
+  id        String   @id @default(uuid())
+  areaCode  String   @map("area_code")
+  
+  // Requester
+  requestedBy String?  @map("requested_by")
+  
+  // Funding
+  ftcCost             Decimal @map("ftc_cost") @db.Decimal(10, 2)
+  userContribution    Decimal @map("user_contribution") @db.Decimal(10, 2)
+  echoMindContribution Decimal @map("echo_mind_contribution") @db.Decimal(10, 2)
+  totalFunded         Decimal @default(0) @map("total_funded") @db.Decimal(10, 2)
+  
+  // Status
+  status              RequestStatus @default(PENDING)
+  progressPercentage  Int           @default(0) @map("progress_percentage")
+  
+  // Completion
+  recordsAdded  Int?      @map("records_added")
+  completedAt   DateTime? @map("completed_at")
+  errorMessage  String?   @map("error_message")
+  
+  // Metadata
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  requester User? @relation(fields: [requestedBy], references: [id], onDelete: SetNull)
+
+  @@index([areaCode])
+  @@index([status])
+  @@index([requestedBy])
+  @@map("area_code_requests")
+}
+
+enum RequestStatus {
+  PENDING
+  FUNDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// ============================================================================
+// PAYMENTS
+// ============================================================================
+
+model Payment {
+  id                    String   @id @default(uuid())
+  userId                String   @map("user_id")
+  
+  // Stripe Details
+  stripePaymentIntentId String   @unique @map("stripe_payment_intent_id")
+  stripeInvoiceId       String?  @map("stripe_invoice_id")
+  
+  // Payment Info
+  amount      Decimal      @db.Decimal(10, 2)
+  currency    String       @default("usd")
+  status      PaymentStatus
+  
+  // Description
+  description String?
+  paymentType PaymentType  @map("payment_type")
+  
+  // Metadata
+  metadata    Json         @default("{}")
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([stripePaymentIntentId])
+  @@index([createdAt(sort: Desc)])
+  @@map("payments")
+}
+
+enum PaymentStatus {
+  SUCCEEDED
+  PENDING
+  FAILED
+  REFUNDED
+}
+
+enum PaymentType {
+  SUBSCRIPTION
+  AREA_CODE
+  ONE_TIME
+}
+
+// ============================================================================
+// ANALYTICS EVENTS (Optional)
+// ============================================================================
+
+model AnalyticsEvent {
+  id         String   @id @default(uuid())
+  userId     String?  @map("user_id")
+  
+  // Event Details
+  eventType  String   @map("event_type")
+  eventData  Json     @default("{}") @map("event_data")
+  
+  // Context
+  deviceType String?  @map("device_type")
+  platform   String?
+  userAgent  String?  @map("user_agent")
+  ipAddress  String?  @map("ip_address") @db.Inet
+  
+  // Metadata
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([eventType])
+  @@index([createdAt(sort: Desc)])
+  @@map("analytics_events")
+}
