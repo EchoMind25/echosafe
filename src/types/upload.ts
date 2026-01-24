@@ -107,21 +107,17 @@ export interface UploadOptions {
 
 /**
  * N8N webhook request payload
+ * PRIVACY-FIRST: Only sends minimum required data
+ * - user_id: Job isolation/security
+ * - job_id: To update upload_history record
+ * - leads: Phone numbers to check against DNC
+ * - check_duplicates: Optional deduplication flag
  */
 export interface N8NWebhookRequest {
-  jobId: string
-  userId: string
+  job_id: string
+  user_id: string
   leads: ParsedLead[]
-  options: {
-    removeDuplicates: boolean
-    saveToCrm: boolean
-    includeRiskyInDownload: boolean
-  }
-  /** Area codes for DNC database targeting */
-  areaCodes: string[]
-  /** Whether to check for duplicates in N8N workflow */
-  checkDuplicates: boolean
-  callbackUrl: string
+  check_duplicates?: boolean
 }
 
 /**

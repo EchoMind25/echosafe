@@ -86,17 +86,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Extract unique area codes from uploaded leads for DNC database targeting
-    const extractedAreaCodes = [...new Set(
-      processedLeads
-        .map(lead => lead.phone_number?.replace(/\D/g, '').substring(0, 3))
-        .filter(code => code && code.length === 3)
-    )]
-
-    // Prepare N8N webhook payload
+    // Prepare N8N webhook payload - PRIVACY FIRST: minimum data only
     const webhookPayload: N8NWebhookRequest = {
-      jobId: job.id,
-      userId: user.id,
+      job_id: job.id,
+      user_id: user.id,
       leads: processedLeads.map(lead => ({
         phone_number: lead.phone_number,
         first_name: lead.first_name,
@@ -107,16 +100,7 @@ export async function POST(request: NextRequest) {
         state: lead.state,
         zip_code: lead.zip_code,
       })),
-      options: {
-        removeDuplicates: options.removeDuplicates,
-        saveToCrm: options.saveToCrm,
-        includeRiskyInDownload: options.includeRiskyInDownload,
-      },
-      // Area codes extracted from uploaded leads for DNC database targeting
-      areaCodes: extractedAreaCodes.length > 0 ? extractedAreaCodes : ['801', '385', '435'],
-      // Map duplicate check option for N8N workflow
-      checkDuplicates: options.removeDuplicates ?? true,
-      callbackUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/upload/${job.id}/callback`,
+      check_duplicates: options.removeDuplicates ?? true,
     }
 
     // Send to N8N webhook (async - don't wait for completion)
