@@ -1,5 +1,23 @@
 import { z } from 'zod'
 
+// Industry options for AI insights tailoring
+export const INDUSTRY_OPTIONS = [
+  { value: 'real-estate-residential', label: 'Real Estate - Residential' },
+  { value: 'real-estate-commercial', label: 'Real Estate - Commercial' },
+  { value: 'solar', label: 'Solar Sales' },
+  { value: 'insurance-life', label: 'Insurance - Life' },
+  { value: 'insurance-health', label: 'Insurance - Health' },
+  { value: 'insurance-auto-home', label: 'Insurance - Auto/Home' },
+  { value: 'financial-services', label: 'Financial Services' },
+  { value: 'home-services-hvac', label: 'Home Services - HVAC' },
+  { value: 'home-services-roofing', label: 'Home Services - Roofing' },
+  { value: 'home-services-windows', label: 'Home Services - Windows/Siding' },
+  { value: 'b2b-services', label: 'B2B Services' },
+  { value: 'other', label: 'Other (please specify)' },
+] as const
+
+export type IndustryValue = typeof INDUSTRY_OPTIONS[number]['value']
+
 export const loginSchema = z.object({
   email: z
     .string()
@@ -18,6 +36,13 @@ export const signupSchema = z.object({
   company: z
     .string()
     .max(200, 'Company name must be less than 200 characters')
+    .optional(),
+  industry: z
+    .string()
+    .min(1, 'Please select your industry'),
+  industryCustom: z
+    .string()
+    .max(100, 'Industry description must be less than 100 characters')
     .optional(),
   email: z
     .string()
@@ -39,6 +64,15 @@ export const signupSchema = z.object({
 }).refine((data) => data.password === data.confirmPassword, {
   message: 'Passwords do not match',
   path: ['confirmPassword'],
+}).refine((data) => {
+  // If industry is 'other', require industryCustom
+  if (data.industry === 'other') {
+    return data.industryCustom && data.industryCustom.trim().length > 0
+  }
+  return true
+}, {
+  message: 'Please specify your industry',
+  path: ['industryCustom'],
 })
 
 export const resetPasswordSchema = z.object({

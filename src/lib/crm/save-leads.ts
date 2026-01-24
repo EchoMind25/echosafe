@@ -48,7 +48,7 @@ export async function saveLeadsToCRM(
   leads: ProcessedLead[],
   options: SaveLeadsOptions
 ): Promise<SaveLeadsResult> {
-  const { userId, jobId, updateExisting = true, tags = [] } = options
+  const { userId, jobId: _jobId, updateExisting = true, tags = [] } = options
 
   const result: SaveLeadsResult = {
     success: true,
@@ -108,10 +108,9 @@ export async function saveLeadsToCRM(
             city: lead.city || undefined,
             state: lead.state || undefined,
             zip_code: lead.zip_code || undefined,
-            dnc_status: lead.dnc_status as 'clean' | 'dnc' | 'risky' || 'clean',
+            dnc_status: Boolean(lead.dnc_status),
             risk_score: lead.risk_score,
             last_scrubbed_at: now,
-            source_job_id: jobId,
             tags: tags.length > 0 ? tags : undefined,
             updated_at: now,
           },
@@ -130,10 +129,9 @@ export async function saveLeadsToCRM(
         city: lead.city || null,
         state: lead.state || null,
         zip_code: lead.zip_code || null,
-        dnc_status: lead.dnc_status as 'clean' | 'dnc' | 'risky' || 'clean',
+        dnc_status: Boolean(lead.dnc_status),
         risk_score: lead.risk_score || null,
         last_scrubbed_at: now,
-        source_job_id: jobId,
         tags: tags.length > 0 ? tags : null,
         created_at: now,
         updated_at: now,
@@ -204,7 +202,9 @@ export async function getCRMLeads(
     .range(offset, offset + limit - 1)
 
   if (status) {
-    query = query.eq('dnc_status', status)
+    // Convert status to boolean: 'clean' means not on DNC (false), 'dnc'/'risky' means on DNC (true)
+    const dncStatusBool = status !== 'clean'
+    query = query.eq('dnc_status', dncStatusBool)
   }
 
   if (search) {
@@ -281,18 +281,13 @@ export async function getCRMStats(
   }
 
   for (const lead of data || []) {
-    switch (lead.dnc_status) {
-      case 'clean':
-        stats.clean++
-        break
-      case 'dnc':
-        stats.dnc++
-        break
-      case 'risky':
-        stats.risky++
-        break
-      default:
-        stats.unknown++
+    // dnc_status is now a boolean: false = clean, true = dnc
+    if (lead.dnc_status === false) {
+      stats.clean++
+    } else if (lead.dnc_status === true) {
+      stats.dnc++
+    } else {
+      stats.unknown++
     }
   }
 

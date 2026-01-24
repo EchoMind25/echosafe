@@ -1,6 +1,6 @@
 # CRM Integrations
 
-This module provides real-time CRM synchronization for Echo Mind Compliance.
+This module provides real-time CRM synchronization for Echo Safe Compliance.
 
 ## Supported CRMs
 
@@ -16,7 +16,7 @@ Add these to your `.env.local` file:
 INTEGRATION_ENCRYPTION_KEY=your-256-bit-hex-key-here
 
 # Optional: Custom salt for key derivation
-INTEGRATION_ENCRYPTION_SALT=echo-mind-salt
+INTEGRATION_ENCRYPTION_SALT=echosafe-salt
 
 # Webhook secret for internal API calls
 WEBHOOK_SECRET=your-webhook-secret-here
@@ -65,7 +65,7 @@ POST /api/webhooks/lead-created     - Trigger auto-sync for new lead
 
 ## Sync Flow
 
-1. Lead is created/updated in Echo Mind CRM
+1. Lead is created/updated in Echo Safe CRM
 2. `processAutoSync()` is called with lead data
 3. System checks for active integrations with `auto_sync: true`
 4. Lead is filtered by risk score (default: only sync if ≤ 20)

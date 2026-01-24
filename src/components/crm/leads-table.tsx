@@ -23,12 +23,23 @@ interface Lead {
   first_name: string | null
   last_name: string | null
   email: string | null
+  address: string | null
+  city: string | null
+  state: string | null
+  zip_code: string | null
   status: string
   risk_score: number | null
   risk_level: string | null
+  dnc_status: boolean
+  last_scrubbed_at: string | null
+  source: string | null
   tags: string[] | null
-  created_at: string
+  notes: string | null
+  contact_count: number
   last_contact_at: string | null
+  next_followup_at: string | null
+  created_at: string
+  updated_at: string
 }
 
 interface LeadsTableProps {

@@ -43,7 +43,8 @@ export interface ParsedLead {
 export interface ProcessedLead extends ParsedLead {
   risk_score: number
   risk_level: 'safe' | 'caution' | 'blocked'
-  dnc_status: boolean
+  /** DNC status: 'clean' (safe), 'caution' (risky), 'blocked' (DNC hit), or boolean for legacy */
+  dnc_status: 'clean' | 'caution' | 'blocked' | boolean
   risk_flags: string[]
 }
 
@@ -116,6 +117,10 @@ export interface N8NWebhookRequest {
     saveToCrm: boolean
     includeRiskyInDownload: boolean
   }
+  /** Area codes for DNC database targeting */
+  areaCodes: string[]
+  /** Whether to check for duplicates in N8N workflow */
+  checkDuplicates: boolean
   callbackUrl: string
 }
 

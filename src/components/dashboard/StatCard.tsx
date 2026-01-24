@@ -32,7 +32,7 @@ export default function StatCard({
   badgeColor = 'text-green-700',
 }: StatCardProps) {
   return (
-    <div className="group bg-white rounded-xl p-6 shadow-sm hover:shadow-md transition-all duration-200 border border-slate-100">
+    <div className="group bg-white dark:bg-zinc-900 rounded-xl p-6 shadow-sm hover:shadow-md transition-all duration-200 border border-slate-100 dark:border-zinc-800">
       <div className="flex items-start justify-between">
         <div className={`w-12 h-12 ${iconBg} rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-200`}>
           <Icon className={`w-6 h-6 ${iconColor}`} />
@@ -42,7 +42,7 @@ export default function StatCard({
           {changeType === 'link' && linkHref ? (
             <Link
               href={linkHref}
-              className="text-xs font-medium text-teal-600 hover:text-teal-700 flex items-center gap-1 transition-colors"
+              className="text-xs font-medium text-teal-600 hover:text-teal-700 dark:text-[#23d8ff] dark:hover:text-[#23d8ff]/80 flex items-center gap-1 transition-colors"
             >
               {change}
               <ArrowUpRight className="w-3 h-3" />
@@ -54,10 +54,10 @@ export default function StatCard({
           ) : change ? (
             <span className={`text-xs font-medium ${
               changeType === 'positive'
-                ? 'text-green-600'
+                ? 'text-green-600 dark:text-green-400'
                 : changeType === 'negative'
-                  ? 'text-red-600'
-                  : 'text-slate-500'
+                  ? 'text-red-600 dark:text-red-400'
+                  : 'text-slate-500 dark:text-[#23d8ff]/60'
             }`}>
               {change}
             </span>
@@ -66,8 +66,8 @@ export default function StatCard({
       </div>
 
       <div className="mt-4">
-        <p className="text-3xl font-bold text-slate-900">{value}</p>
-        <p className="mt-1 text-sm text-slate-600">{title}</p>
+        <p className="text-3xl font-bold text-slate-900 dark:text-[#23d8ff]">{value}</p>
+        <p className="mt-1 text-sm text-slate-600 dark:text-[#23d8ff]/70">{title}</p>
       </div>
     </div>
   )

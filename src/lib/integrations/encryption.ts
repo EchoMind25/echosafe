@@ -7,18 +7,39 @@ import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'crypt
 
 const ALGORITHM = 'aes-256-gcm'
 const IV_LENGTH = 16
-const SALT_LENGTH = 32
-const TAG_LENGTH = 16
 const KEY_LENGTH = 32
 
 /**
  * Get encryption key from environment variable
- * Falls back to generating one from a secret if not set
+ * SECURITY: No fallback - encryption key MUST be configured
  */
 function getEncryptionKey(): Buffer {
-  const secret = process.env.INTEGRATION_ENCRYPTION_KEY || process.env.NEXTAUTH_SECRET || 'fallback-secret-change-in-production'
-  const salt = process.env.INTEGRATION_ENCRYPTION_SALT || 'echo-mind-salt'
-  return scryptSync(secret, salt, KEY_LENGTH)
+  const secret = process.env.INTEGRATION_ENCRYPTION_KEY || process.env.NEXTAUTH_SECRET
+  const salt = process.env.INTEGRATION_ENCRYPTION_SALT
+
+  // CRITICAL: Never use hardcoded fallback in production
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'CRITICAL: INTEGRATION_ENCRYPTION_KEY or NEXTAUTH_SECRET must be set in production. ' +
+        'Generate with: openssl rand -base64 32'
+      )
+    }
+    // Development only - warn loudly
+    console.warn(
+      '\x1b[31m⚠️  WARNING: Using insecure dev encryption key. Set INTEGRATION_ENCRYPTION_KEY in .env.local\x1b[0m'
+    )
+    return scryptSync('dev-only-insecure-key', 'dev-salt', KEY_LENGTH)
+  }
+
+  if (!salt && process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'CRITICAL: INTEGRATION_ENCRYPTION_SALT must be set in production. ' +
+      'Generate with: openssl rand -base64 16'
+    )
+  }
+
+  return scryptSync(secret, salt || 'dev-salt', KEY_LENGTH)
 }
 
 /**

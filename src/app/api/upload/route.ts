@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { removeDuplicates } from '@/lib/utils/duplicate-detector'
 import type { ParsedLead, UploadOptions, N8NWebhookRequest } from '@/types/upload'
 
@@ -8,6 +9,7 @@ import type { ParsedLead, UploadOptions, N8NWebhookRequest } from '@/types/uploa
 // ============================================================================
 
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://dncscrub.app.n8n.cloud/webhook/86fe5f5e-9ccd-4e3b-a247-971cdd50d529'
+const N8N_TIMEOUT_MS = 30000 // 30 second timeout for initial webhook response
 
 // ============================================================================
 // POST - Start scrubbing job
@@ -84,6 +86,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Extract unique area codes from uploaded leads for DNC database targeting
+    const extractedAreaCodes = [...new Set(
+      processedLeads
+        .map(lead => lead.phone_number?.replace(/\D/g, '').substring(0, 3))
+        .filter(code => code && code.length === 3)
+    )]
+
     // Prepare N8N webhook payload
     const webhookPayload: N8NWebhookRequest = {
       jobId: job.id,
@@ -103,40 +112,58 @@ export async function POST(request: NextRequest) {
         saveToCrm: options.saveToCrm,
         includeRiskyInDownload: options.includeRiskyInDownload,
       },
+      // Area codes extracted from uploaded leads for DNC database targeting
+      areaCodes: extractedAreaCodes.length > 0 ? extractedAreaCodes : ['801', '385', '435'],
+      // Map duplicate check option for N8N workflow
+      checkDuplicates: options.removeDuplicates ?? true,
       callbackUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/upload/${job.id}/callback`,
     }
 
     // Send to N8N webhook (async - don't wait for completion)
+    // Use AbortController for timeout and admin client for async updates
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), N8N_TIMEOUT_MS)
+    const jobId = job.id // Capture for async callback
+
     fetch(N8N_WEBHOOK_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(webhookPayload),
+      signal: controller.signal,
     })
       .then(async (response) => {
+        clearTimeout(timeoutId)
         if (!response.ok) {
           console.error('N8N webhook error:', response.status, await response.text())
-          // Update upload status to failed
-          await supabase
+          // Use admin client for async callback (original client may be closed)
+          const adminClient = createAdminClient()
+          await adminClient
             .from('upload_history')
             .update({
               status: 'failed',
-              error_message: 'Failed to send to processing service',
+              error_message: `Processing service returned error: ${response.status}`,
             })
-            .eq('id', job.id)
+            .eq('id', jobId)
         }
         // Status is already 'processing' from initial insert
       })
       .catch(async (error) => {
+        clearTimeout(timeoutId)
+        const errorMessage = error.name === 'AbortError'
+          ? 'Processing service timeout - job may still complete'
+          : 'Failed to connect to processing service'
         console.error('N8N webhook error:', error)
-        await supabase
+        // Use admin client for async callback
+        const adminClient = createAdminClient()
+        await adminClient
           .from('upload_history')
           .update({
-            status: 'failed',
-            error_message: 'Failed to connect to processing service',
+            status: error.name === 'AbortError' ? 'processing' : 'failed',
+            error_message: errorMessage,
           })
-          .eq('id', job.id)
+          .eq('id', jobId)
       })
 
     // Log analytics event

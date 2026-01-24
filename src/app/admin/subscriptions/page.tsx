@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { createBrowserClient } from '@/lib/supabase'
+import type { FtcSubscription } from '@/lib/supabase/types'
 import {
   CreditCard,
   Plus,
@@ -11,28 +12,8 @@ import {
   XCircle,
   Calendar,
   DollarSign,
-  Database,
-  Clock,
   X,
 } from 'lucide-react'
-
-interface FtcSubscription {
-  id: string
-  area_code: string
-  state: string | null
-  subscription_status: string
-  subscribed_at: string
-  expires_at: string
-  last_update_at: string | null
-  next_update_due: string | null
-  annual_cost: number
-  monthly_cost: number
-  total_records: number
-  last_record_count: number
-  notes: string | null
-  created_at: string
-  updated_at: string
-}
 
 const US_STATES = [
   { code: 'AL', name: 'Alabama' }, { code: 'AK', name: 'Alaska' }, { code: 'AZ', name: 'Arizona' },
@@ -62,7 +43,6 @@ export default function AdminSubscriptionsPage() {
     area_code: '',
     state: '',
     annual_cost: 100,
-    monthly_cost: 8,
     expires_at: '',
     notes: '',
   })
@@ -106,11 +86,11 @@ export default function AdminSubscriptionsPage() {
         .from('ftc_subscriptions')
         .insert({
           area_code: newSubscription.area_code,
-          state: newSubscription.state || null,
+          state: newSubscription.state || 'Unknown',
           subscription_status: 'active',
+          subscribed_at: new Date().toISOString(),
           expires_at: newSubscription.expires_at,
           annual_cost: newSubscription.annual_cost,
-          monthly_cost: newSubscription.monthly_cost,
           notes: newSubscription.notes || null,
         })
 
@@ -121,7 +101,6 @@ export default function AdminSubscriptionsPage() {
         area_code: '',
         state: '',
         annual_cost: 100,
-        monthly_cost: 8,
         expires_at: '',
         notes: '',
       })
@@ -195,7 +174,6 @@ export default function AdminSubscriptionsPage() {
       return days > 0 && days <= 30
     }).length,
     expired: subscriptions.filter(s => new Date(s.expires_at) < new Date()).length,
-    totalRecords: subscriptions.reduce((sum, s) => sum + s.total_records, 0),
     annualCost: subscriptions.filter(s => s.subscription_status === 'active').reduce((sum, s) => sum + Number(s.annual_cost), 0),
   }
 
@@ -219,7 +197,7 @@ export default function AdminSubscriptionsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-teal-500/20 rounded-lg flex items-center justify-center">
@@ -266,17 +244,6 @@ export default function AdminSubscriptionsPage() {
         </div>
         <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
-              <Database className="w-5 h-5 text-blue-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-white">{(stats.totalRecords / 1000000).toFixed(2)}M</p>
-              <p className="text-xs text-slate-400">Records</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
-          <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
               <DollarSign className="w-5 h-5 text-purple-400" />
             </div>
@@ -309,8 +276,6 @@ export default function AdminSubscriptionsPage() {
                 <th className="text-left py-3 px-4 text-sm font-medium text-slate-400">State</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-slate-400">Status</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-slate-400">Expires</th>
-                <th className="text-left py-3 px-4 text-sm font-medium text-slate-400">Last Update</th>
-                <th className="text-left py-3 px-4 text-sm font-medium text-slate-400">Records</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-slate-400">Annual Cost</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-slate-400">Actions</th>
               </tr>
@@ -336,21 +301,6 @@ export default function AdminSubscriptionsPage() {
                     </div>
                   </td>
                   <td className="py-3 px-4">
-                    {sub.last_update_at ? (
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-slate-500" />
-                        <span className="text-sm text-slate-300">
-                          {new Date(sub.last_update_at).toLocaleDateString()}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-sm text-slate-500">Never</span>
-                    )}
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className="text-sm text-white">{sub.total_records.toLocaleString()}</span>
-                  </td>
-                  <td className="py-3 px-4">
                     <span className="text-sm text-white">${Number(sub.annual_cost).toFixed(2)}</span>
                   </td>
                   <td className="py-3 px-4">
@@ -365,14 +315,14 @@ export default function AdminSubscriptionsPage() {
               ))}
               {subscriptions.length === 0 && !isLoading && (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-400">
+                  <td colSpan={6} className="py-8 text-center text-slate-400">
                     No subscriptions found
                   </td>
                 </tr>
               )}
               {isLoading && (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-400">
+                  <td colSpan={6} className="py-8 text-center text-slate-400">
                     <RefreshCw className="w-6 h-6 animate-spin mx-auto" />
                   </td>
                 </tr>
@@ -447,29 +397,16 @@ export default function AdminSubscriptionsPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Annual Cost ($)
-                  </label>
-                  <input
-                    type="number"
-                    value={newSubscription.annual_cost}
-                    onChange={(e) => setNewSubscription(prev => ({ ...prev, annual_cost: Number(e.target.value) }))}
-                    className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Monthly Cost ($)
-                  </label>
-                  <input
-                    type="number"
-                    value={newSubscription.monthly_cost}
-                    onChange={(e) => setNewSubscription(prev => ({ ...prev, monthly_cost: Number(e.target.value) }))}
-                    className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Annual Cost ($)
+                </label>
+                <input
+                  type="number"
+                  value={newSubscription.annual_cost}
+                  onChange={(e) => setNewSubscription(prev => ({ ...prev, annual_cost: Number(e.target.value) }))}
+                  className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
               </div>
 
               <div>

@@ -1,7 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import Stripe from 'stripe'
 
-export async function POST(request: NextRequest) {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: '2023-10-16',
+})
+
+interface UserProfile {
+  pricing_tier: string | null
+  legacy_price_lock: number | null
+  legacy_grace_until: string | null
+  stripe_subscription_id: string | null
+  subscription_status: string
+}
+
+export async function POST(_request: NextRequest) {
   try {
     const supabase = await createClient()
 
@@ -18,11 +31,11 @@ export async function POST(request: NextRequest) {
     // Get user profile
     const { data: profile, error: profileError } = await supabase
       .from('users')
-      .select('pricing_tier, legacy_price_lock, legacy_grace_until, stripe_subscription_id, subscription_status, monthly_base_rate')
+      .select('pricing_tier, legacy_price_lock, legacy_grace_until, stripe_subscription_id, subscription_status')
       .eq('id', user.id)
-      .single()
+      .single() as { data: UserProfile | null; error: Error | null }
 
-    if (profileError) {
+    if (profileError || !profile) {
       console.error('Error fetching user profile:', profileError)
       return NextResponse.json(
         { success: false, error: 'Failed to fetch user profile' },
@@ -30,7 +43,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if subscription is actually cancelled
+    // Check if subscription is actually canceled
     if (profile.subscription_status === 'active') {
       return NextResponse.json(
         { success: false, error: 'Subscription is already active' },
@@ -45,14 +58,14 @@ export async function POST(request: NextRequest) {
       : true
 
     let newPricingTier = profile.pricing_tier
-    let newMonthlyRate = profile.monthly_base_rate || 47.00
+    let newMonthlyRate = profile.legacy_price_lock || 47.00
     let legacyPreserved = false
 
     if (hasLegacyPricing) {
       if (!graceExpired) {
         // Grace period still valid - restore legacy pricing
         legacyPreserved = true
-        newMonthlyRate = profile.legacy_price_lock
+        newMonthlyRate = profile.legacy_price_lock!
       } else {
         // Grace period expired - reset to standard pricing
         newPricingTier = 'standard'
@@ -65,7 +78,7 @@ export async function POST(request: NextRequest) {
             legacy_price_lock: null,
             legacy_grace_until: null,
             pricing_tier: 'standard',
-          })
+          } as Record<string, unknown>)
           .eq('id', user.id)
       }
     }
@@ -76,10 +89,9 @@ export async function POST(request: NextRequest) {
       .update({
         subscription_status: 'active',
         legacy_grace_until: null, // Clear grace period on reactivation
-        monthly_base_rate: newMonthlyRate,
         pricing_tier: newPricingTier,
         updated_at: new Date().toISOString(),
-      })
+      } as Record<string, unknown>)
       .eq('id', user.id)
 
     if (updateError) {
@@ -93,25 +105,40 @@ export async function POST(request: NextRequest) {
     // Reactivate Stripe subscription if exists
     if (profile.stripe_subscription_id) {
       try {
-        // In production, reactivate Stripe subscription
-        // const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
-        // For cancelled but not deleted subscriptions:
-        // await stripe.subscriptions.update(profile.stripe_subscription_id, {
-        //   cancel_at_period_end: false,
-        // })
-        // For fully cancelled, create new subscription
-        console.log('Would reactivate Stripe subscription:', profile.stripe_subscription_id)
+        // Undo the cancel_at_period_end flag
+        const subscription = await stripe.subscriptions.retrieve(profile.stripe_subscription_id)
+
+        if (subscription.cancel_at_period_end) {
+          await stripe.subscriptions.update(profile.stripe_subscription_id, {
+            cancel_at_period_end: false,
+          })
+          console.log('Reactivated Stripe subscription:', profile.stripe_subscription_id)
+        } else if (subscription.status === 'canceled') {
+          // Subscription was fully canceled, need to create new one
+          return NextResponse.json({
+            success: true,
+            requiresPayment: true,
+            message: 'Your previous subscription has expired. Please subscribe again to continue.',
+            pricing_tier: newPricingTier,
+            monthly_rate: newMonthlyRate,
+            legacyPreserved,
+          })
+        }
       } catch (stripeError) {
         console.error('Failed to reactivate Stripe subscription:', stripeError)
-        // Return info about needing payment method
-        return NextResponse.json({
-          success: true,
-          requiresPayment: true,
-          message: 'Subscription reactivated. Please update your payment method.',
-          pricing_tier: newPricingTier,
-          monthly_rate: newMonthlyRate,
-          legacyPreserved,
-        })
+        // Revert database change if Stripe fails
+        await supabase
+          .from('users')
+          .update({
+            subscription_status: profile.subscription_status,
+            updated_at: new Date().toISOString(),
+          } as Record<string, unknown>)
+          .eq('id', user.id)
+
+        return NextResponse.json(
+          { success: false, error: 'Failed to reactivate subscription with payment provider' },
+          { status: 500 }
+        )
       }
     }
 
@@ -152,7 +179,7 @@ export async function POST(request: NextRequest) {
 }
 
 // GET: Check reactivation options
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const supabase = await createClient()
 
@@ -168,9 +195,9 @@ export async function GET(request: NextRequest) {
     // Get user profile
     const { data: profile } = await supabase
       .from('users')
-      .select('pricing_tier, legacy_price_lock, legacy_grace_until, subscription_status, monthly_base_rate')
+      .select('pricing_tier, legacy_price_lock, legacy_grace_until, subscription_status')
       .eq('id', user.id)
-      .single()
+      .single() as { data: UserProfile | null }
 
     if (!profile) {
       return NextResponse.json(
@@ -189,7 +216,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      canReactivate: profile.subscription_status === 'cancelled',
+      canReactivate: profile.subscription_status === 'canceled',
       currentStatus: profile.subscription_status,
       hasLegacyPricing,
       legacyRate: profile.legacy_price_lock,

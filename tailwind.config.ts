@@ -19,7 +19,7 @@ const config = {
     },
     extend: {
       colors: {
-        // Echo Mind Brand Colors (Teal from logo)
+        // Echo Safe Brand Colors (Teal from logo)
         'echo-primary': {
           50: '#f0fdfa',
           100: '#ccfbf1',
@@ -50,6 +50,20 @@ const config = {
         'echo-warning': '#f59e0b',
         'echo-danger': '#ef4444',
         'echo-info': '#06b6d4',
+        // Cyan accent for dark mode
+        'echo-cyan': {
+          50: '#ecfeff',
+          100: '#cffafe',
+          200: '#a5f3fc',
+          300: '#67e8f9',
+          400: '#23d8ff', // Your specified color
+          500: '#06b6d4',
+          600: '#0891b2',
+          700: '#0e7490',
+          800: '#155e75',
+          900: '#164e63',
+          950: '#083344',
+        },
 
         // shadcn/ui mappings
         border: 'hsl(var(--border))',
@@ -127,6 +141,7 @@ const config = {
       },
       fontFamily: {
         sans: [
+          'var(--font-inter)',
           'Inter',
           '-apple-system',
           'BlinkMacSystemFont',

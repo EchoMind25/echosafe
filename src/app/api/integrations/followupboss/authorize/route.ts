@@ -5,10 +5,26 @@ import { cookies } from 'next/headers'
 import crypto from 'crypto'
 
 // ============================================================================
+// FEATURE FLAG: CRM Integrations Coming Soon
+// ============================================================================
+const CRM_INTEGRATIONS_COMING_SOON = true
+
+// Helper to create typed supabase queries for tables not in generated types
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const fromTable = (supabase: any, table: string) => supabase.from(table)
+
+// ============================================================================
 // GET - Start OAuth flow for Follow Up Boss
 // ============================================================================
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
+  // Coming Soon - redirect with message
+  if (CRM_INTEGRATIONS_COMING_SOON) {
+    return NextResponse.redirect(
+      `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/settings/integrations?error=coming_soon`
+    )
+  }
+
   try {
     const supabase = await createClient()
 
@@ -24,11 +40,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if user already has a Follow Up Boss integration
-    const { data: existing } = await supabase
-      .from('crm_integrations')
+    const { data: existing } = await fromTable(supabase, 'crm_integrations')
       .select('id')
       .eq('user_id', user.id)
-      .eq('crm_type', 'FOLLOWUPBOSS')
+      .eq('crm_type', 'followupboss')
       .single()
 
     if (existing) {

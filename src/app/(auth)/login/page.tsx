@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { loginSchema, type LoginFormData } from '@/core/validation/auth.schema'
 import { signIn } from '@/core/services/auth.service'
 import { ErrorMessage } from '@/components/ui/error-message'
+import { GoogleOAuthButton, OAuthDivider } from '@/components/auth/google-oauth-button'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -221,6 +222,10 @@ export default function LoginPage() {
         </button>
       </form>
 
+      {/* OAuth Divider and Google Button */}
+      <OAuthDivider />
+      <GoogleOAuthButton mode="login" />
+
       {/* Sign Up Link */}
       <p className="text-center text-sm text-echo-neutral-600">
         Don&apos;t have an account?{' '}
@@ -232,15 +237,17 @@ export default function LoginPage() {
         </Link>
       </p>
 
-      {/* Development Mode Skip Link */}
-      <div className="pt-4 border-t border-echo-neutral-200">
-        <Link
-          href="/dashboard"
-          className="block text-center text-xs text-echo-neutral-400 hover:text-echo-neutral-500 transition-colors"
-        >
-          Skip to Dashboard (Dev Mode)
-        </Link>
-      </div>
+      {/* Development Mode Skip Link - only in development */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="pt-4 border-t border-echo-neutral-200">
+          <Link
+            href="/dashboard"
+            className="block text-center text-xs text-echo-neutral-400 hover:text-echo-neutral-500 transition-colors"
+          >
+            Skip to Dashboard (Dev Mode)
+          </Link>
+        </div>
+      )}
     </div>
   )
 }

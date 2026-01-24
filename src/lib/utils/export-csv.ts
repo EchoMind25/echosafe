@@ -7,11 +7,21 @@ import type { CrmLead } from '@/types'
 
 /**
  * Escape CSV field values properly
+ * Includes protection against CSV formula injection (Excel/Sheets code execution)
  */
 function escapeCSVField(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return ''
 
-  const stringValue = String(value)
+  let stringValue = String(value)
+
+  // CSV Formula Injection Prevention
+  // Prefix dangerous characters that could be interpreted as formulas in Excel/Sheets
+  // Characters: = + - @ | (these can trigger DDE or formula execution)
+  const dangerousChars = ['=', '+', '-', '@', '|', '\t', '\r']
+  if (dangerousChars.some(char => stringValue.startsWith(char))) {
+    // Prefix with single quote to force text interpretation
+    stringValue = "'" + stringValue
+  }
 
   // If contains comma, quote, or newline, wrap in quotes and escape existing quotes
   if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {

@@ -4,7 +4,7 @@
 // ============================================================================
 
 import { safeNormalizePhone } from './phone-normalize'
-import type { DuplicateInfo, ParsedLead } from '@/types/upload'
+import type { DuplicateInfo } from '@/types/upload'
 
 /**
  * Statistics about duplicates found

@@ -2,10 +2,30 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 // ============================================================================
+// FEATURE FLAG: CRM Integrations Coming Soon
+// ============================================================================
+const CRM_INTEGRATIONS_COMING_SOON = true
+
+// Helper to create typed supabase queries for tables not in generated types
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const fromTable = (supabase: any, table: string) => supabase.from(table)
+
+// ============================================================================
 // GET - Fetch all sync logs across all integrations for the user
 // ============================================================================
 
 export async function GET(request: NextRequest) {
+  // Coming Soon - return empty logs
+  if (CRM_INTEGRATIONS_COMING_SOON) {
+    return NextResponse.json({
+      success: true,
+      data: [],
+      comingSoon: true,
+      pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+      message: 'CRM integrations are coming soon!',
+    })
+  }
+
   try {
     const supabase = await createClient()
     const { searchParams } = new URL(request.url)
@@ -31,8 +51,7 @@ export async function GET(request: NextRequest) {
     const offset = (page - 1) * limit
 
     // Get user's integrations first
-    const { data: integrations } = await supabase
-      .from('crm_integrations')
+    const { data: integrations } = await fromTable(supabase, 'crm_integrations')
       .select('id, crm_type')
       .eq('user_id', user.id)
 
@@ -49,14 +68,13 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    const integrationIds = integrations.map(i => i.id)
+    const integrationIds = integrations.map((i: { id: string }) => i.id)
 
-    // Build query for logs
-    let query = supabase
-      .from('crm_sync_logs')
-      .select('*, crm_integrations!inner(crm_type)', { count: 'exact' })
+    // Build query for logs - using crm_integration_logs (actual table name)
+    let query = fromTable(supabase, 'crm_integration_logs')
+      .select('*', { count: 'exact' })
       .in('integration_id', integrationIds)
-      .order('synced_at', { ascending: false })
+      .order('started_at', { ascending: false })
 
     // Apply status filter
     if (status) {
@@ -66,9 +84,9 @@ export async function GET(request: NextRequest) {
 
     // Apply CRM type filter
     if (crmType) {
-      const filteredIntegrations = integrations.filter(i => i.crm_type === crmType)
+      const filteredIntegrations = integrations.filter((i: { crm_type: string }) => i.crm_type === crmType)
       if (filteredIntegrations.length > 0) {
-        query = query.in('integration_id', filteredIntegrations.map(i => i.id))
+        query = query.in('integration_id', filteredIntegrations.map((i: { id: string }) => i.id))
       } else {
         // No integrations of this type - return empty
         return NextResponse.json({
@@ -81,10 +99,10 @@ export async function GET(request: NextRequest) {
 
     // Apply date range filters
     if (dateFrom) {
-      query = query.gte('synced_at', dateFrom)
+      query = query.gte('started_at', dateFrom)
     }
     if (dateTo) {
-      query = query.lte('synced_at', dateTo)
+      query = query.lte('started_at', dateTo)
     }
 
     // Apply pagination
@@ -100,11 +118,11 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Map logs to include crm_type at top level
-    const logsWithCrmType = (logs || []).map(log => ({
+    // Map logs to include crm_type from integrations lookup
+    const integrationMap = new Map(integrations.map((i: { id: string; crm_type: string }) => [i.id, i.crm_type]))
+    const logsWithCrmType = (logs || []).map((log: { integration_id: string }) => ({
       ...log,
-      crm_type: log.crm_integrations?.crm_type,
-      crm_integrations: undefined,
+      crm_type: integrationMap.get(log.integration_id),
     }))
 
     return NextResponse.json({

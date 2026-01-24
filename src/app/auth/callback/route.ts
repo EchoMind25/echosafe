@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { sendWelcomeEmail } from '@/lib/email'
 
 /**
  * Auth callback route handler
@@ -84,6 +85,15 @@ export async function GET(request: NextRequest) {
     } else if (type === 'signup' || type === 'email') {
       // Email verification - redirect to dashboard with a success message
       redirectTo = '/dashboard?verified=true'
+
+      // Send welcome email after successful verification
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user?.email) {
+        const fullName = user.user_metadata?.full_name || 'there'
+        sendWelcomeEmail(user.email, fullName).catch((err) => {
+          console.error('[Auth Callback] Failed to send welcome email:', err)
+        })
+      }
     } else if (next) {
       // Custom redirect was specified (validate to prevent open redirect)
       redirectTo = next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard'

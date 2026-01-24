@@ -1,6 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+// Database row type for upload_history
+interface UploadHistoryRow {
+  id: string
+  user_id: string
+  filename: string
+  file_size: number | null
+  total_leads: number
+  processed_leads: number | null
+  clean_leads: number
+  dnc_blocked: number
+  caution_leads: number
+  duplicates_removed: number
+  average_risk_score: number | null
+  compliance_rate: number | null
+  clean_file_url: string | null
+  full_report_url: string | null
+  risky_file_url: string | null
+  processing_time_ms: number | null
+  n8n_job_id: string | null
+  status: 'processing' | 'completed' | 'failed'
+  error_message: string | null
+  source: string | null
+  area_codes_used: string[] | null
+  created_at: string
+}
+
 // ============================================================================
 // GET - Poll job status
 // ============================================================================
@@ -29,7 +55,7 @@ export async function GET(
       .select('*')
       .eq('id', jobId)
       .eq('user_id', user.id)
-      .single()
+      .single() as unknown as { data: UploadHistoryRow | null; error: Error | null }
 
     if (jobError || !job) {
       return NextResponse.json(
@@ -39,8 +65,9 @@ export async function GET(
     }
 
     // Calculate progress percentage
+    const processedLeads = job.processed_leads || 0
     const progress = job.total_leads > 0
-      ? Math.round((job.processed_leads / job.total_leads) * 100)
+      ? Math.round((processedLeads / job.total_leads) * 100)
       : 0
 
     return NextResponse.json({
@@ -50,15 +77,15 @@ export async function GET(
         status: job.status,
         filename: job.filename,
         totalLeads: job.total_leads,
-        processedLeads: job.processed_leads,
+        processedLeads: processedLeads,
         cleanLeads: job.clean_leads,
-        dncLeads: job.dnc_leads,
-        riskyLeads: job.risky_leads,
+        dncLeads: job.dnc_blocked,
+        riskyLeads: job.caution_leads,
         progress,
-        results: job.results,
+        cleanFileUrl: job.clean_file_url,
+        fullReportUrl: job.full_report_url,
+        riskyFileUrl: job.risky_file_url,
         errorMessage: job.error_message,
-        startedAt: job.started_at,
-        completedAt: job.completed_at,
         createdAt: job.created_at,
       },
     })

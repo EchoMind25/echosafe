@@ -1,4 +1,4 @@
-# Echo Mind Compliance
+# Echo Safe Compliance
 
 **Intelligent DNC Lead Scrubbing Platform**
 
@@ -68,7 +68,7 @@ echo-mind-compliance/
 
 ## 🎨 Design System
 
-**Brand Colors (Echo Mind Teal):**
+**Brand Colors (Echo Safe Teal):**
 - Primary: `#14b8a6` (Teal)
 - Success: `#10b981` (Green - clean leads)
 - Warning: `#f59e0b` (Amber - caution leads)
@@ -230,7 +230,7 @@ vercel --prod
 
 ## 🤝 Contributing
 
-This is a proprietary project for Echo Mind Systems.
+This is a proprietary project for Echo Safe Systems.
 
 **Development Workflow:**
 1. Create feature branch: `git checkout -b feature/name`
@@ -243,19 +243,20 @@ This is a proprietary project for Echo Mind Systems.
 
 ---
 
-## 📞 Support
+## 📞 Contact
 
-- **Email:** support@echocompli.com
-- **Website:** https://echocompli.com
-- **Status:** https://status.echocompli.com
+- **Support:** support@tryechomind.net
+- **Business Inquiries:** braxton@tryechomind.net
+- **Security:** keaton@tryechomind.net
+- **Website:** https://tryechomind.net
 
 ---
 
 ## 📄 License
 
-Proprietary - Echo Mind Systems  
-Copyright © 2026 Braxton, Echo Mind Automation
+Proprietary - Echo Safe Systems  
+Copyright © 2026 Braxton, Echo Safe Automation
 
 ---
 
-**Built with ❤️ by Echo Mind Systems**
+**Built with ❤️ by Echo Safe Systems**

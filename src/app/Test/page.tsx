@@ -1,4 +1,11 @@
+import { notFound } from 'next/navigation'
+
 export default function TestPage() {
+  // Only available in development
+  if (process.env.NODE_ENV === 'production') {
+    notFound()
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center p-8">
       <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md">
@@ -10,6 +17,9 @@ export default function TestPage() {
         </h1>
         <p className="text-slate-600 text-center mb-6">
           If you see colors and styling, Tailwind is configured correctly.
+        </p>
+        <p className="text-xs text-slate-400 text-center mb-4">
+          (Development only - not visible in production)
         </p>
         <button className="w-full bg-teal-500 hover:bg-teal-600 text-white font-semibold px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all hover:scale-105">
           Test Button

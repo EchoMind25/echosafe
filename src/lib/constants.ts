@@ -1,5 +1,5 @@
 // ============================================================================
-// ECHO MIND COMPLIANCE - BRAND CONSTANTS
+// ECHO SAFE - BRAND CONSTANTS
 // Central configuration for branding, colors, and assets
 // ============================================================================
 
@@ -8,14 +8,17 @@
 // ============================================================================
 
 export const BRAND = {
-  name: 'Echo Mind Compliance',
-  shortName: 'Echo Compliance',
-  company: 'Echo Mind Systems',
+  name: 'Echo Safe',
+  shortName: 'Echo Safe',
+  company: 'Echo Safe',
   tagline: 'Intelligent DNC Lead Scrubbing',
   description: 'Stay TCPA compliant with AI-powered risk scoring and automated lead scrubbing',
-  website: 'https://echocompli.com',
-  supportEmail: 'support@echocompli.com',
-  salesEmail: 'sales@echocompli.com',
+  website: 'https://echosafe.app',
+  // Contact emails
+  supportEmail: 'support@echosafe.app',           // General support inquiries
+  businessEmail: 'braxton@echosafe.app',          // Business/partnership inquiries
+  securityEmail: 'keaton@echosafe.app',           // Security infrastructure & penetration testing
+  noReplyEmail: 'noreply@echosafe.app',           // Transactional emails
 } as const
 
 // ============================================================================
@@ -42,11 +45,11 @@ export const LOGO = {
 } as const
 
 // ============================================================================
-// BRAND COLORS (Echo Mind Teal)
+// BRAND COLORS (Echo Safe Teal)
 // ============================================================================
 
 export const COLORS = {
-  // Primary - Echo Mind Teal (from logo)
+  // Primary - Echo Safe Teal (from logo)
   primary: {
     50: '#f0fdfa',
     100: '#ccfbf1',
@@ -285,28 +288,28 @@ export const LIMITS = {
 
 export const LINKS = {
   social: {
-    twitter: 'https://twitter.com/echomindsystems',
-    linkedin: 'https://linkedin.com/company/echo-mind-systems',
-    youtube: 'https://youtube.com/@echomindsystems',
+    twitter: 'https://twitter.com/echosafeapp',
+    linkedin: 'https://linkedin.com/company/echosafe',
+    youtube: 'https://youtube.com/@echosafeapp',
   },
-  
+
   docs: {
-    gettingStarted: 'https://docs.echocompli.com/getting-started',
-    api: 'https://docs.echocompli.com/api',
-    googleSheets: 'https://docs.echocompli.com/google-sheets',
-    integrations: 'https://docs.echocompli.com/integrations',
+    gettingStarted: 'https://docs.echosafe.app/getting-started',
+    api: 'https://docs.echosafe.app/api',
+    googleSheets: 'https://docs.echosafe.app/google-sheets',
+    integrations: 'https://docs.echosafe.app/integrations',
   },
-  
+
   legal: {
-    terms: 'https://echocompli.com/terms',
-    privacy: 'https://echocompli.com/privacy',
-    compliance: 'https://echocompli.com/compliance',
+    terms: 'https://echosafe.app/terms',
+    privacy: 'https://echosafe.app/privacy',
+    compliance: 'https://echosafe.app/compliance',
   },
-  
+
   support: {
-    help: 'https://help.echocompli.com',
-    contact: 'https://echocompli.com/contact',
-    status: 'https://status.echocompli.com',
+    help: 'https://help.echosafe.app',
+    contact: 'https://echosafe.app/contact',
+    status: 'https://status.echosafe.app',
   },
 } as const
 

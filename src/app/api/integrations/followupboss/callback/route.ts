@@ -4,10 +4,26 @@ import { exchangeCodeForTokens, encryptFUBCredentials } from '@/lib/integrations
 import { cookies } from 'next/headers'
 
 // ============================================================================
+// FEATURE FLAG: CRM Integrations Coming Soon
+// ============================================================================
+const CRM_INTEGRATIONS_COMING_SOON = true
+
+// Helper to create typed supabase queries for tables not in generated types
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const fromTable = (supabase: any, table: string) => supabase.from(table)
+
+// ============================================================================
 // GET - Handle OAuth callback from Follow Up Boss
 // ============================================================================
 
 export async function GET(request: NextRequest) {
+  // Coming Soon - redirect with message
+  if (CRM_INTEGRATIONS_COMING_SOON) {
+    return NextResponse.redirect(
+      `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/settings/integrations?error=coming_soon`
+    )
+  }
+
   const { searchParams } = new URL(request.url)
   const code = searchParams.get('code')
   const state = searchParams.get('state')
@@ -63,11 +79,10 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient()
 
     // Double-check user doesn't already have integration (race condition prevention)
-    const { data: existing } = await supabase
-      .from('crm_integrations')
+    const { data: existing } = await fromTable(supabase, 'crm_integrations')
       .select('id')
       .eq('user_id', userId)
-      .eq('crm_type', 'FOLLOWUPBOSS')
+      .eq('crm_type', 'followupboss')
       .single()
 
     if (existing) {
@@ -80,20 +95,18 @@ export async function GET(request: NextRequest) {
     const defaultSyncSettings = {
       auto_sync: true,
       sync_frequency: 'immediate',
-      sync_clean_only: true,
-      max_risk_score: 20,
+      sync_risky: false,
     }
 
     // Create the integration
-    const { data: integration, error: createError } = await supabase
-      .from('crm_integrations')
+    const { data: integration, error: createError } = await fromTable(supabase, 'crm_integrations')
       .insert({
         user_id: userId,
-        crm_type: 'FOLLOWUPBOSS',
+        crm_type: 'followupboss',
+        crm_name: 'Follow Up Boss',
         credentials: encryptedCredentials,
         sync_settings: defaultSyncSettings,
-        status: 'ACTIVE',
-        consecutive_failures: 0,
+        status: 'active',
       })
       .select('id')
       .single()
@@ -109,7 +122,7 @@ export async function GET(request: NextRequest) {
     await supabase.from('analytics_events').insert({
       user_id: userId,
       event_type: 'crm_integration_connected',
-      event_data: { crm_type: 'FOLLOWUPBOSS', integration_id: integration.id },
+      event_data: { crm_type: 'followupboss', integration_id: integration.id },
     })
 
     // Redirect with success

@@ -1,5 +1,5 @@
 // ============================================================================
-// ECHO MIND COMPLIANCE - TYPE DEFINITIONS
+// ECHO SAFE - TYPE DEFINITIONS
 // Portable types for core entities
 // ============================================================================
 
@@ -16,6 +16,8 @@ export interface User {
   fullName: string
   phone?: string
   company?: string
+  industry: string
+  industryCustom?: string
   subscriptionStatus: SubscriptionStatus
   subscriptionTier: SubscriptionTier
   stripeCustomerId?: string
@@ -33,6 +35,7 @@ export interface UserPreferences {
   auto_sync_crm: boolean
   include_risky_in_download: boolean
   default_area_codes: string[]
+  theme: 'light' | 'dark'
 }
 
 // ============================================================================

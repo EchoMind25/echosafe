@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       risk_score: lead.risk_score ?? lead.riskScore ?? null,
       tags: lead.tags || [],
       notes: lead.notes || null,
-      source: source === 'scrub' ? 'Echo Mind Scrub' : lead.source || 'Echo Mind',
+      source: source === 'scrub' ? 'Echo Safe Scrub' : lead.source || 'Echo Safe',
     }
 
     // Process auto-sync to all configured integrations
@@ -146,7 +146,7 @@ export async function PUT(request: NextRequest) {
         risk_score: lead.risk_score ?? lead.riskScore ?? null,
         tags: lead.tags || [],
         notes: lead.notes || null,
-        source: source === 'scrub' ? 'Echo Mind Scrub' : lead.source || 'Echo Mind',
+        source: source === 'scrub' ? 'Echo Safe Scrub' : lead.source || 'Echo Safe',
       }
 
       try {

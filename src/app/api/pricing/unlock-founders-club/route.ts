@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-export async function POST(request: NextRequest) {
+// Helper to create typed supabase queries for tables not in generated types
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const fromTable = (supabase: any, table: string) => supabase.from(table)
+
+export async function POST(_request: NextRequest) {
   try {
     const supabase = await createClient()
 
@@ -15,15 +19,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if user has 3+ completed expansion requests
-    const { data: completedRequests, error: requestsError } = await supabase
-      .from('expansion_requests')
-      .select('id, area_code, contribution_amount')
-      .eq('user_id', user.id)
+    // Check if user has 3+ completed area code requests
+    const { data: completedRequests, error: requestsError } = await fromTable(supabase, 'area_code_requests')
+      .select('id, area_code, user_contribution')
+      .eq('requested_by', user.id)
       .eq('status', 'completed')
 
     if (requestsError) {
-      console.error('Error fetching expansion requests:', requestsError)
+      console.error('Error fetching area code requests:', requestsError)
       return NextResponse.json(
         { success: false, error: 'Failed to verify eligibility' },
         { status: 500 }
@@ -73,8 +76,8 @@ export async function POST(request: NextRequest) {
       .update({
         pricing_tier: 'founders_club',
         legacy_price_lock: 47.00,
-        founders_club_unlocked_at: new Date().toISOString(),
-        area_code_limit: 999, // Unlimited area codes
+        legacy_granted_at: new Date().toISOString(),
+        legacy_reason: 'Area code contribution (3+ contributions)',
       })
       .eq('id', user.id)
 
@@ -90,23 +93,11 @@ export async function POST(request: NextRequest) {
     if (profile.stripe_subscription_id) {
       try {
         // In production, update Stripe subscription to Founder's Club price
-        // const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
-        // await stripe.subscriptions.update(profile.stripe_subscription_id, {
-        //   items: [{ price: process.env.STRIPE_FOUNDERS_CLUB_PRICE_ID }],
-        // })
         console.log('Would update Stripe subscription:', profile.stripe_subscription_id)
       } catch (stripeError) {
         console.error('Failed to update Stripe subscription:', stripeError)
-        // Don't fail the request, Stripe can be synced later
       }
     }
-
-    // Mark expansion requests as unlocking Founder's Club
-    const requestIds = completedRequests.slice(0, 3).map(r => r.id)
-    await supabase
-      .from('expansion_requests')
-      .update({ unlocks_founders_club: true })
-      .in('id', requestIds)
 
     return NextResponse.json({
       success: true,
@@ -131,7 +122,7 @@ export async function POST(request: NextRequest) {
 }
 
 // GET: Check eligibility
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const supabase = await createClient()
 
@@ -147,15 +138,14 @@ export async function GET(request: NextRequest) {
     // Get user profile
     const { data: profile } = await supabase
       .from('users')
-      .select('pricing_tier, founders_club_unlocked_at')
+      .select('pricing_tier, legacy_granted_at')
       .eq('id', user.id)
-      .single()
+      .single() as { data: { pricing_tier: string | null; legacy_granted_at: string | null } | null }
 
-    // Check completed expansion requests
-    const { data: completedRequests } = await supabase
-      .from('expansion_requests')
+    // Check completed area code requests
+    const { data: completedRequests } = await fromTable(supabase, 'area_code_requests')
       .select('id, area_code')
-      .eq('user_id', user.id)
+      .eq('requested_by', user.id)
       .eq('status', 'completed')
 
     const completedCount = completedRequests?.length || 0
@@ -168,8 +158,8 @@ export async function GET(request: NextRequest) {
       isMember,
       completedCount,
       requiredCount: 3,
-      unlockedAt: profile?.founders_club_unlocked_at || null,
-      contributedAreaCodes: completedRequests?.map(r => r.area_code) || [],
+      unlockedAt: profile?.legacy_granted_at || null,
+      contributedAreaCodes: completedRequests?.map((r: { area_code: string }) => r.area_code) || [],
     })
 
   } catch (error) {

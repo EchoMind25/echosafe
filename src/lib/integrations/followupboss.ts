@@ -4,7 +4,7 @@
 // Docs: https://docs.followupboss.com/reference/
 // ============================================================================
 
-import { encrypt, decrypt, maskSensitive } from './encryption'
+import { encrypt, decrypt } from './encryption'
 
 // ============================================================================
 // CONFIGURATION
@@ -250,7 +250,7 @@ export class FollowUpBossClient {
    * Create a new person/lead
    */
   async createPerson(person: FUBPerson): Promise<FUBPerson> {
-    const response = await this.request<{ person: FUBPerson }>('POST', '/people', person)
+    const response = await this.request<{ person: FUBPerson }>('POST', '/people', person as Record<string, unknown>)
     return response.person
   }
 
@@ -261,7 +261,7 @@ export class FollowUpBossClient {
     const response = await this.request<{ person: FUBPerson }>(
       'PUT',
       `/people/${personId}`,
-      updates
+      updates as Record<string, unknown>
     )
     return response.person
   }
@@ -308,7 +308,7 @@ export function mapLeadToFUBPerson(lead: {
   source?: string | null
 }): FUBPerson {
   const person: FUBPerson = {
-    source: lead.source || 'Echo Mind Compliance',
+    source: lead.source || 'Echo Safe Compliance',
   }
 
   if (lead.first_name) person.firstName = lead.first_name
@@ -333,16 +333,16 @@ export function mapLeadToFUBPerson(lead: {
   }
 
   if (lead.tags && lead.tags.length > 0) {
-    person.tags = [...lead.tags, 'Echo Mind - Clean Lead']
+    person.tags = [...lead.tags, 'Echo Safe - Clean Lead']
   } else {
-    person.tags = ['Echo Mind - Clean Lead']
+    person.tags = ['Echo Safe - Clean Lead']
   }
 
   // Store risk score in custom field
   if (lead.risk_score !== null && lead.risk_score !== undefined) {
     person.customFields = {
-      'Echo Mind Risk Score': lead.risk_score.toString(),
-      'Echo Mind Sync Date': new Date().toISOString(),
+      'Echo Safe Risk Score': lead.risk_score.toString(),
+      'Echo Safe Sync Date': new Date().toISOString(),
     }
   }
 

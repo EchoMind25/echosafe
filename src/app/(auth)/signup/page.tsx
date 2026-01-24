@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { signupSchema, type SignupFormData } from '@/core/validation/auth.schema'
+import { signupSchema, type SignupFormData, INDUSTRY_OPTIONS } from '@/core/validation/auth.schema'
 import { signUp } from '@/core/services/auth.service'
+import { Shield, Info } from 'lucide-react'
+import { GoogleOAuthButton, OAuthDivider } from '@/components/auth/google-oauth-button'
 
 export default function SignupPage() {
   const router = useRouter()
@@ -17,20 +19,31 @@ export default function SignupPage() {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<SignupFormData>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
       acceptTerms: false,
+      industry: '',
     },
   })
+
+  const selectedIndustry = watch('industry')
 
   const onSubmit = async (data: SignupFormData) => {
     setIsLoading(true)
     setError(null)
 
     try {
-      const result = await signUp(data.email, data.password, data.fullName, data.company)
+      const result = await signUp(
+        data.email,
+        data.password,
+        data.fullName,
+        data.industry,
+        data.company,
+        data.industryCustom
+      )
 
       if (result.success) {
         if (result.data?.needsEmailVerification) {
@@ -39,7 +52,6 @@ export default function SignupPage() {
           router.push('/dashboard')
         }
       } else {
-        // Handle specific error cases
         const errorMessage = result.error?.message || 'Failed to create account'
         if (errorMessage.includes('already registered') || errorMessage.includes('already exists')) {
           setError('An account with this email already exists. Please sign in instead.')
@@ -103,6 +115,16 @@ export default function SignupPage() {
           Start scrubbing leads in minutes
         </p>
       </div>
+
+      {/* Privacy Badge */}
+      <div className="flex items-center justify-center gap-2 px-4 py-2 bg-purple-50 border border-purple-200 rounded-lg">
+        <Shield className="w-4 h-4 text-purple-600" />
+        <span className="text-sm text-purple-800 font-medium">Privacy-First Platform</span>
+      </div>
+
+      {/* Google OAuth Quick Signup */}
+      <GoogleOAuthButton mode="signup" />
+      <OAuthDivider />
 
       {/* Error Message */}
       {error && (
@@ -178,6 +200,84 @@ export default function SignupPage() {
             <p className="text-xs text-red-500">{errors.company.message}</p>
           )}
         </div>
+
+        {/* Industry Selection */}
+        <div className="space-y-2">
+          <label
+            htmlFor="industry"
+            className="block text-sm font-medium text-echo-neutral-700"
+          >
+            Your Industry
+          </label>
+          <select
+            id="industry"
+            {...register('industry')}
+            className={`
+              w-full h-12 px-4
+              bg-white
+              border rounded-lg
+              text-echo-neutral-900
+              cursor-pointer
+              transition-all duration-200
+              focus:outline-none focus:ring-2 focus:ring-echo-primary-500/20
+              ${errors.industry
+                ? 'border-red-500 focus:border-red-500'
+                : 'border-echo-neutral-300 focus:border-echo-primary-500'
+              }
+            `}
+          >
+            <option value="">Select your industry...</option>
+            {INDUSTRY_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          {errors.industry && (
+            <p className="text-xs text-red-500">{errors.industry.message}</p>
+          )}
+          <div className="flex items-start gap-2 mt-1">
+            <Info className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-echo-neutral-500">
+              This helps us tailor AI compliance insights to your specific industry.
+              We don&apos;t track or profile your usage.
+            </p>
+          </div>
+        </div>
+
+        {/* Custom Industry Field (shown when "Other" is selected) */}
+        {selectedIndustry === 'other' && (
+          <div className="space-y-2">
+            <label
+              htmlFor="industryCustom"
+              className="block text-sm font-medium text-echo-neutral-700"
+            >
+              Please specify your industry
+            </label>
+            <input
+              id="industryCustom"
+              type="text"
+              {...register('industryCustom')}
+              className={`
+                w-full h-12 px-4
+                bg-white
+                border rounded-lg
+                text-echo-neutral-900
+                placeholder:text-echo-neutral-400
+                transition-all duration-200
+                focus:outline-none focus:ring-2 focus:ring-echo-primary-500/20
+                ${errors.industryCustom
+                  ? 'border-red-500 focus:border-red-500'
+                  : 'border-echo-neutral-300 focus:border-echo-primary-500'
+                }
+              `}
+              placeholder="e.g., Mortgage Lending"
+            />
+            {errors.industryCustom && (
+              <p className="text-xs text-red-500">{errors.industryCustom.message}</p>
+            )}
+          </div>
+        )}
 
         {/* Email Field */}
         <div className="space-y-2">
@@ -321,6 +421,19 @@ export default function SignupPage() {
           )}
         </div>
 
+        {/* Legal Disclaimer */}
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg space-y-2">
+          <p className="text-xs text-amber-900 font-semibold">
+            Important Legal Notice
+          </p>
+          <ul className="text-xs text-amber-800 space-y-1 list-disc list-inside">
+            <li>Echo Safe is a data checking tool, not a compliance solution or legal advice.</li>
+            <li>You are solely responsible for TCPA/DNC compliance and maintaining your own call records.</li>
+            <li>DNC data may be incomplete or outdated. Always verify critical leads independently.</li>
+            <li>AI insights are informational only and do not constitute legal guidance.</li>
+          </ul>
+        </div>
+
         {/* Submit Button */}
         <button
           type="submit"
@@ -367,6 +480,20 @@ export default function SignupPage() {
         </button>
       </form>
 
+      {/* Privacy Guarantee */}
+      <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+        <div className="flex items-start gap-3">
+          <Shield className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-purple-900 mb-1">Privacy Guarantee</p>
+            <p className="text-xs text-purple-700">
+              We don&apos;t track you, profile you, or sell your data. Your leads stay yours.
+              Delete anytime, no questions asked.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Sign In Link */}
       <p className="text-center text-sm text-echo-neutral-600">
         Already have an account?{' '}
@@ -377,16 +504,6 @@ export default function SignupPage() {
           Sign in
         </Link>
       </p>
-
-      {/* Development Mode Skip Link */}
-      <div className="pt-4 border-t border-echo-neutral-200">
-        <Link
-          href="/dashboard"
-          className="block text-center text-xs text-echo-neutral-400 hover:text-echo-neutral-500 transition-colors"
-        >
-          Skip to Dashboard (Dev Mode)
-        </Link>
-      </div>
     </div>
   )
 }

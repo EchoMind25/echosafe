@@ -8,7 +8,6 @@ import * as XLSX from 'xlsx'
 import { safeNormalizePhone, isValidPhone } from './phone-normalize'
 import { findDuplicates, getDuplicateStats } from './duplicate-detector'
 import type {
-  RawLead,
   ParsedLead,
   ParseResult,
   ParseError,
@@ -526,7 +525,7 @@ export function leadsToCSV(leads: ParsedLead[], includeRiskData: boolean = false
   // Create CSV content
   const rows = leads.map((lead) => {
     const values = headers.map((header) => {
-      const value = (lead as Record<string, unknown>)[header]
+      const value = (lead as unknown as Record<string, unknown>)[header]
       // Escape quotes and wrap in quotes if contains comma
       const stringValue = value?.toString() || ''
       if (stringValue.includes(',') || stringValue.includes('"')) {

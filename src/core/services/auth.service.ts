@@ -74,6 +74,7 @@ function mapToFullUser(supabaseUser: SupabaseUser, profile?: Record<string, unkn
     auto_sync_crm: false,
     include_risky_in_download: false,
     default_area_codes: [],
+    theme: 'light',
   }
 
   return {
@@ -82,6 +83,8 @@ function mapToFullUser(supabaseUser: SupabaseUser, profile?: Record<string, unkn
     fullName: supabaseUser.user_metadata?.full_name ?? profile?.full_name as string ?? '',
     phone: profile?.phone as string | undefined,
     company: profile?.company as string | undefined,
+    industry: supabaseUser.user_metadata?.industry ?? profile?.industry as string ?? 'real-estate-residential',
+    industryCustom: supabaseUser.user_metadata?.industry_custom ?? profile?.industry_custom as string | undefined,
     subscriptionStatus: (profile?.subscription_status as SubscriptionStatus) ?? 'TRIALING',
     subscriptionTier: (profile?.subscription_tier as SubscriptionTier) ?? 'BASE',
     stripeCustomerId: profile?.stripe_customer_id as string | undefined,
@@ -100,14 +103,16 @@ function mapToFullUser(supabaseUser: SupabaseUser, profile?: Record<string, unkn
 // ============================================================================
 
 /**
- * Sign up a new user with email, password, full name, and optional company.
- * Creates the auth user and stores additional metadata.
+ * Sign up a new user with email, password, full name, industry, and optional company.
+ * Creates the auth user and stores additional metadata including industry for AI insights.
  */
 export async function signUp(
   email: string,
   password: string,
   fullName: string,
-  company?: string
+  industry: string,
+  company?: string,
+  industryCustom?: string
 ): Promise<ApiResponse<SignUpData>> {
   try {
     const supabase = createClient()
@@ -119,6 +124,8 @@ export async function signUp(
         data: {
           full_name: fullName,
           company: company || null,
+          industry: industry,
+          industry_custom: industryCustom || null,
         },
         emailRedirectTo: `${window.location.origin}/auth/callback?type=signup`,
       },
@@ -291,7 +298,10 @@ export async function getCurrentUser(): Promise<ApiResponse<User | null>> {
 
     if (userDataError && userDataError.code !== 'PGRST116') {
       // PGRST116 = no rows found, which is fine for new users
-      console.error('Error fetching user data:', userDataError)
+      // Only log in production to avoid noise in development
+      if (process.env.NODE_ENV === 'production') {
+        console.error('Error fetching user data:', userDataError)
+      }
     }
 
     const fullUser = mapToFullUser(user, userData ?? undefined)
@@ -359,5 +369,36 @@ export async function resendVerificationEmail(email: string): Promise<ApiRespons
   } catch (err) {
     const message = err instanceof Error ? err.message : 'An unexpected error occurred'
     return createErrorResponse('AUTH_RESEND_ERROR', message)
+  }
+}
+
+/**
+ * Sign in with Google OAuth.
+ * Redirects to Google's OAuth consent screen, then back to /auth/callback.
+ */
+export async function signInWithGoogle(): Promise<ApiResponse<null>> {
+  try {
+    const supabase = createClient()
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'select_account',
+        },
+      },
+    })
+
+    if (error) {
+      return createErrorResponse('AUTH_OAUTH_FAILED', error.message)
+    }
+
+    // OAuth redirects, so this won't be reached unless there's an error
+    return createSuccessResponse(null, 'Redirecting to Google...')
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'An unexpected error occurred'
+    return createErrorResponse('AUTH_OAUTH_ERROR', message)
   }
 }

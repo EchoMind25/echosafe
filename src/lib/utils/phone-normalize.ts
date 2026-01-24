@@ -212,7 +212,7 @@ export function isTollFree(phone: string): boolean {
  * @param phone - The phone number to check
  * @returns True if likely mobile, false otherwise
  */
-export function isLikelyMobile(phone: string): boolean {
+export function isLikelyMobile(_phone: string): boolean {
   // This would require a phone type lookup API for accuracy
   // For now, we can't determine this from the number alone
   return false

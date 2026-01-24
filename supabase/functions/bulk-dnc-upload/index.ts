@@ -482,7 +482,7 @@ async function sendCompletionEmail(
       </table>
 
       <p style="margin-top: 24px; color: #64748b; font-size: 14px;">
-        This is an automated notification from Echo Mind Compliance.
+        This is an automated notification from Echo Safe.
       </p>
     </div>
   `
@@ -495,7 +495,7 @@ async function sendCompletionEmail(
         'Authorization': `Bearer ${resendApiKey}`,
       },
       body: JSON.stringify({
-        from: Deno.env.get('RESEND_FROM_EMAIL') || 'noreply@echomindcompliance.com',
+        from: Deno.env.get('RESEND_FROM_EMAIL') || 'noreply@echosafe.app',
         to: email,
         subject,
         html: htmlBody,

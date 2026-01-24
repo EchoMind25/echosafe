@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 // ============================================================================
+// FEATURE FLAG: CRM Integrations Coming Soon
+// ============================================================================
+const CRM_INTEGRATIONS_COMING_SOON = true
+
+// Helper to create typed supabase queries for tables not in generated types
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const fromTable = (supabase: any, table: string) => supabase.from(table)
+
+// ============================================================================
 // GET - Fetch sync logs for an integration
 // ============================================================================
 
@@ -9,6 +18,17 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Coming Soon - return empty logs
+  if (CRM_INTEGRATIONS_COMING_SOON) {
+    return NextResponse.json({
+      success: true,
+      data: [],
+      comingSoon: true,
+      pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+      message: 'CRM integrations are coming soon!',
+    })
+  }
+
   try {
     const { id } = await params
     const supabase = await createClient()
@@ -25,8 +45,7 @@ export async function GET(
     }
 
     // Check integration exists and belongs to user
-    const { data: integration, error: fetchError } = await supabase
-      .from('crm_integrations')
+    const { data: integration, error: fetchError } = await fromTable(supabase, 'crm_integrations')
       .select('id')
       .eq('id', id)
       .eq('user_id', user.id)
@@ -48,12 +67,11 @@ export async function GET(
 
     const offset = (page - 1) * limit
 
-    // Build query
-    let query = supabase
-      .from('crm_sync_logs')
+    // Build query - using crm_integration_logs (the actual table name)
+    let query = fromTable(supabase, 'crm_integration_logs')
       .select('*', { count: 'exact' })
       .eq('integration_id', id)
-      .order('synced_at', { ascending: false })
+      .order('started_at', { ascending: false })
 
     // Apply status filter
     if (status) {
@@ -63,10 +81,10 @@ export async function GET(
 
     // Apply date range filters
     if (dateFrom) {
-      query = query.gte('synced_at', dateFrom)
+      query = query.gte('started_at', dateFrom)
     }
     if (dateTo) {
-      query = query.lte('synced_at', dateTo)
+      query = query.lte('started_at', dateTo)
     }
 
     // Apply pagination

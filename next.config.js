@@ -1,3 +1,4 @@
+const path = require('path')
 const withPWA = require('next-pwa')({
   dest: 'public',
   register: true,
@@ -5,7 +6,7 @@ const withPWA = require('next-pwa')({
   disable: process.env.NODE_ENV === 'development',
   runtimeCaching: [
     {
-      urlPattern: /^https:\/\/api\.echocompli\.com\/.*/i,
+      urlPattern: /^https:\/\/api\.echosafe\.app\/.*/i,
       handler: 'NetworkFirst',
       options: {
         cacheName: 'api-cache',
@@ -44,12 +45,19 @@ const withPWA = require('next-pwa')({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: true,
+  turbopack: {},
+  // Fix for multiple lockfiles warning - set correct workspace root
+  outputFileTracingRoot: path.join(__dirname, './'),
   images: {
-    domains: [
-      'echocompli.com',
-      'supabase.co',
-      // Add Supabase storage domain when known
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'echosafe.app',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.supabase.co',
+      },
     ],
     formats: ['image/avif', 'image/webp'],
   },

@@ -207,7 +207,7 @@ export default function ConnectModal({
                     <Info className="w-5 h-5 text-slate-400 mt-0.5" />
                     <div>
                       <p className="text-sm text-slate-700">
-                        You&apos;ll be redirected to {config.name} to authorize Echo Mind Compliance.
+                        You&apos;ll be redirected to {config.name} to authorize Echo Safe.
                       </p>
                       <p className="text-xs text-slate-500 mt-1">
                         We only request permissions to read and write contacts.

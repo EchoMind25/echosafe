@@ -3,12 +3,15 @@
 // Functions for checking and managing Do Not Call registry
 // ============================================================================
 
-import { createServerClient } from './supabase'
-import { parsePhoneState, getStateFromAreaCode } from './states'
-import type { Database } from './supabase'
+import { createClient } from './supabase/server'
+import { parsePhoneState } from './states'
+import type { Database } from './supabase/types'
 
 // Type alias for DNC registry row
 type DncRegistryRow = Database['public']['Tables']['dnc_registry']['Row']
+
+// Partial type for batch check results (only selected fields)
+type DncBatchRecord = Pick<DncRegistryRow, 'phone_number' | 'area_code' | 'state' | 'registered_at' | 'source'>
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -22,8 +25,8 @@ export type DncCheckResult = {
   phoneNumber: string
   state?: string | null
   areaCode?: string
-  registeredAt?: string
-  source?: string
+  registeredAt?: string | null
+  source?: string | null
 }
 
 /**
@@ -34,8 +37,8 @@ export type DncBatchCheckResult = {
   isBlocked: boolean
   state?: string | null
   areaCode?: string
-  registeredAt?: string
-  source?: string
+  registeredAt?: string | null
+  source?: string | null
 }
 
 /**
@@ -77,7 +80,7 @@ export async function checkDNC(phoneNumber: string): Promise<DncCheckResult> {
   const { areaCode, state } = parsePhoneState(cleanedPhone)
 
   // Query Supabase
-  const supabase = await createServerClient()
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from('dnc_registry')
     .select('phone_number, area_code, state, registered_at, source')
@@ -128,14 +131,14 @@ export async function checkDNCBatch(
   const cleanedPhones = phoneNumbers.map((phone) => phone.replace(/\D/g, ''))
 
   // Query Supabase for all numbers at once
-  const supabase = await createServerClient()
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from('dnc_registry')
     .select('phone_number, area_code, state, registered_at, source')
     .in('phone_number', cleanedPhones)
 
   // Create a map of phone numbers found in DNC
-  const dncMap = new Map<string, DncRegistryRow>()
+  const dncMap = new Map<string, DncBatchRecord>()
   if (data && !error) {
     for (const record of data) {
       dncMap.set(record.phone_number, record)
@@ -189,7 +192,7 @@ export async function getDNCByState(
   state: string,
   limit = 1000
 ): Promise<DncRegistryRow[]> {
-  const supabase = await createServerClient()
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from('dnc_registry')
     .select('*')
@@ -215,7 +218,7 @@ export async function getDNCByState(
  * ```
  */
 export async function getDNCCountByState(state: string): Promise<number> {
-  const supabase = await createServerClient()
+  const supabase = await createClient()
   const { count, error } = await supabase
     .from('dnc_registry')
     .select('*', { count: 'exact', head: true })
@@ -244,7 +247,7 @@ export async function getDNCCountByState(state: string): Promise<number> {
 export async function getDNCStatsByState(
   state: string
 ): Promise<DncStateStats> {
-  const supabase = await createServerClient()
+  const supabase = await createClient()
 
   // Get all records for the state
   const { data, error } = await supabase
@@ -264,9 +267,9 @@ export async function getDNCStatsByState(
   // Calculate statistics
   const uniqueAreaCodes = new Set(data.map((r) => r.area_code)).size
   const sources = {
-    federal: data.filter((r) => r.source === 'federal').length,
-    utah_state: data.filter((r) => r.source === 'utah_state').length,
-    manual: data.filter((r) => r.source === 'manual').length,
+    federal: data.filter((r) => r.source === 'ftc').length,
+    utah_state: data.filter((r) => r.source === 'state').length,
+    manual: data.filter((r) => r.source === 'internal').length,
   }
 
   return {
@@ -297,7 +300,7 @@ export async function getDNCByAreaCode(
   areaCode: string,
   limit = 1000
 ): Promise<DncRegistryRow[]> {
-  const supabase = await createServerClient()
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from('dnc_registry')
     .select('*')
@@ -325,7 +328,7 @@ export async function getDNCByAreaCode(
  * ```
  */
 export async function getDNCCountByAreaCode(areaCode: string): Promise<number> {
-  const supabase = await createServerClient()
+  const supabase = await createClient()
   const { count, error } = await supabase
     .from('dnc_registry')
     .select('*', { count: 'exact', head: true })
@@ -357,12 +360,12 @@ export async function getDNCCountByAreaCode(areaCode: string): Promise<number> {
  */
 export async function addToDNC(
   phoneNumber: string,
-  source: 'federal' | 'utah_state' | 'manual' = 'manual'
+  source: 'ftc' | 'state' | 'internal' = 'internal'
 ): Promise<DncRegistryRow> {
   const cleanedPhone = phoneNumber.replace(/\D/g, '')
   const { areaCode, state } = parsePhoneState(cleanedPhone)
 
-  const supabase = await createServerClient()
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from('dnc_registry')
     .insert({
@@ -395,7 +398,7 @@ export async function addToDNC(
 export async function removeFromDNC(phoneNumber: string): Promise<boolean> {
   const cleanedPhone = phoneNumber.replace(/\D/g, '')
 
-  const supabase = await createServerClient()
+  const supabase = await createClient()
   const { error, count } = await supabase
     .from('dnc_registry')
     .delete({ count: 'exact' })
@@ -421,7 +424,7 @@ export async function removeFromDNC(phoneNumber: string): Promise<boolean> {
  */
 export async function batchAddToDNC(
   phoneNumbers: string[],
-  source: 'federal' | 'utah_state' | 'manual' = 'manual'
+  source: 'ftc' | 'state' | 'internal' = 'internal'
 ): Promise<DncRegistryRow[]> {
   const records = phoneNumbers.map((phone) => {
     const cleanedPhone = phone.replace(/\D/g, '')
@@ -436,7 +439,7 @@ export async function batchAddToDNC(
     }
   })
 
-  const supabase = await createServerClient()
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from('dnc_registry')
     .insert(records)
@@ -464,7 +467,7 @@ export async function batchAddToDNC(
  * ```
  */
 export async function getTotalDNCCount(): Promise<number> {
-  const supabase = await createServerClient()
+  const supabase = await createClient()
   const { count, error } = await supabase
     .from('dnc_registry')
     .select('*', { count: 'exact', head: true })
@@ -489,10 +492,10 @@ export async function getTotalDNCCount(): Promise<number> {
  * ```
  */
 export async function getDNCBySource(
-  source: 'federal' | 'utah_state' | 'manual',
+  source: 'ftc' | 'state' | 'internal',
   limit = 1000
 ): Promise<DncRegistryRow[]> {
-  const supabase = await createServerClient()
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from('dnc_registry')
     .select('*')
@@ -519,7 +522,7 @@ export async function getDNCBySource(
 export async function getRecentDNCAdditions(
   limit = 100
 ): Promise<DncRegistryRow[]> {
-  const supabase = await createServerClient()
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from('dnc_registry')
     .select('*')

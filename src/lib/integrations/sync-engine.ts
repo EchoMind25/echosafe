@@ -4,8 +4,11 @@
 // ============================================================================
 
 import { createClient } from '@/lib/supabase/server'
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const fromTable = (supabase: any, table: string) => supabase.from(table)
 import { FollowUpBossClient, mapLeadToFUBPerson, encryptFUBCredentials, type FUBCredentials } from './followupboss'
-import { LoftyClient, mapLeadToLoftyContact, type LoftyCredentials } from './lofty'
+import { LoftyClient, mapLeadToLoftyContact } from './lofty'
+import { KvcoreClient, mapLeadToKvcoreContact } from './kvcore'
 import { encrypt, decrypt } from './encryption'
 import type { CrmType, SyncStatus, SyncType } from '@/types'
 
@@ -15,7 +18,6 @@ import type { CrmType, SyncStatus, SyncType } from '@/types'
 
 const MAX_RETRY_ATTEMPTS = 3
 const INITIAL_RETRY_DELAY_MS = 1000 // 1 second
-const MAX_CONSECUTIVE_FAILURES = 10
 const CLEAN_LEAD_MAX_RISK_SCORE = 20
 
 // ============================================================================
@@ -66,7 +68,6 @@ export interface IntegrationRecord {
     max_risk_score: number
   }
   status: 'ACTIVE' | 'PAUSED' | 'ERROR'
-  consecutive_failures: number
   last_sync_at?: string
   last_error?: string
 }
@@ -139,6 +140,8 @@ export async function syncLeadToCrm(
         return await syncToFollowUpBoss(lead, integration)
       case 'LOFTY':
         return await syncToLofty(lead, integration)
+      case 'KVCORE':
+        return await syncToKvcore(lead, integration)
       default:
         return {
           success: false,
@@ -170,8 +173,7 @@ async function syncToFollowUpBoss(
   // Create token refresh callback to update credentials
   const onTokenRefresh = async (newCredentials: FUBCredentials) => {
     const encryptedCreds = encryptFUBCredentials(newCredentials)
-    await supabase
-      .from('crm_integrations')
+    await fromTable(supabase, 'crm_integrations')
       .update({ credentials: encryptedCreds, updated_at: new Date().toISOString() })
       .eq('id', integration.id)
   }
@@ -202,7 +204,7 @@ async function syncToFollowUpBoss(
 
       // Add sync note if there are notes
       if (lead.notes) {
-        await client.addNote(existingPerson.id, `Echo Mind Sync: ${lead.notes}`)
+        await client.addNote(existingPerson.id, `Echo Safe Sync: ${lead.notes}`)
       }
 
       return {
@@ -258,7 +260,7 @@ async function syncToLofty(
 
       // Add sync note if there are notes
       if (lead.notes) {
-        await client.addNote(existingContact.id, `Echo Mind Sync: ${lead.notes}`)
+        await client.addNote(existingContact.id, `Echo Safe Sync: ${lead.notes}`)
       }
 
       return {
@@ -279,6 +281,62 @@ async function syncToLofty(
       }
     }
   }, `Lofty sync for lead ${lead.id}`)
+}
+
+/**
+ * Sync lead to Kvcore CRM
+ */
+async function syncToKvcore(
+  lead: SyncLeadInput,
+  integration: IntegrationRecord
+): Promise<SyncResult> {
+  const client = new KvcoreClient(integration.credentials)
+
+  return withRetry(async () => {
+    // Check for existing contact by phone
+    const existingContact = await client.findContactByPhone(lead.phone_number)
+    const contact = mapLeadToKvcoreContact({
+      first_name: lead.first_name,
+      last_name: lead.last_name,
+      phone_number: lead.phone_number,
+      email: lead.email,
+      address: lead.address,
+      city: lead.city,
+      state: lead.state,
+      zip_code: lead.zip_code,
+      risk_score: lead.risk_score,
+      tags: lead.tags,
+      notes: lead.notes,
+      source: lead.source,
+    })
+
+    if (existingContact && existingContact.id) {
+      // Update existing contact
+      const updated = await client.updateContact(existingContact.id, contact)
+
+      // Add sync note if there are notes
+      if (lead.notes) {
+        await client.addNote(existingContact.id, `Echo Safe Sync: ${lead.notes}`)
+      }
+
+      return {
+        success: true,
+        leadId: lead.id,
+        crmRecordId: updated.id,
+        action: 'updated' as const,
+      }
+    } else {
+      // Create new contact
+      const created = await client.createContact(contact)
+
+      return {
+        success: true,
+        leadId: lead.id,
+        crmRecordId: created.id,
+        action: 'created' as const,
+      }
+    }
+  }, `Kvcore sync for lead ${lead.id}`)
 }
 
 // ============================================================================
@@ -343,7 +401,7 @@ export async function createSyncLog(params: {
 }): Promise<void> {
   const supabase = await createClient()
 
-  await supabase.from('crm_sync_logs').insert({
+  await fromTable(supabase, 'crm_integration_logs').insert({
     integration_id: params.integrationId,
     user_id: params.userId,
     lead_id: params.leadId,
@@ -368,31 +426,18 @@ export async function updateIntegrationStatus(
 
   if (success) {
     // Reset consecutive failures on success
-    await supabase
-      .from('crm_integrations')
+    await fromTable(supabase, 'crm_integrations')
       .update({
-        consecutive_failures: 0,
         last_sync_at: new Date().toISOString(),
         last_error: null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', integrationId)
   } else {
-    // Increment failures and potentially pause integration
-    const { data: integration } = await supabase
-      .from('crm_integrations')
-      .select('consecutive_failures')
-      .eq('id', integrationId)
-      .single()
-
-    const newFailures = (integration?.consecutive_failures || 0) + 1
-    const shouldPause = newFailures >= MAX_CONSECUTIVE_FAILURES
-
-    await supabase
-      .from('crm_integrations')
+    // Update with error
+    await fromTable(supabase, 'crm_integrations')
       .update({
-        consecutive_failures: newFailures,
-        status: shouldPause ? 'ERROR' : undefined,
+        status: 'ERROR',
         last_error: errorMessage,
         updated_at: new Date().toISOString(),
       })
@@ -417,8 +462,7 @@ export async function processAutoSync(
   const errors: string[] = []
 
   // Get all active integrations for the user with auto_sync enabled
-  const { data: integrations, error } = await supabase
-    .from('crm_integrations')
+  const { data: integrations, error } = await fromTable(supabase, 'crm_integrations')
     .select('*')
     .eq('user_id', userId)
     .eq('status', 'ACTIVE')
@@ -429,8 +473,8 @@ export async function processAutoSync(
   }
 
   // Filter integrations with auto_sync enabled
-  const autoSyncIntegrations = integrations.filter(i => {
-    const settings = i.sync_settings as IntegrationRecord['sync_settings']
+  const autoSyncIntegrations = (integrations as IntegrationRecord[]).filter(i => {
+    const settings = i.sync_settings
     return settings?.auto_sync && settings?.sync_frequency === 'immediate'
   })
 
@@ -503,8 +547,7 @@ export async function manualSync(
   const supabase = await createClient()
 
   // Get the integration
-  const { data: integration, error: integrationError } = await supabase
-    .from('crm_integrations')
+  const { data: integration, error: integrationError } = await fromTable(supabase, 'crm_integrations')
     .select('*')
     .eq('id', integrationId)
     .eq('user_id', userId)
@@ -523,7 +566,6 @@ export async function manualSync(
     .from('crm_leads')
     .select('*')
     .eq('user_id', userId)
-    .is('deleted_at', null)
 
   if (leadIds && leadIds.length > 0) {
     query = query.in('id', leadIds)
@@ -549,7 +591,6 @@ export async function manualSync(
     risk_score: lead.risk_score,
     tags: lead.tags,
     notes: lead.notes,
-    source: lead.source,
   }))
 
   // Perform batch sync
@@ -594,6 +635,11 @@ export async function testCrmConnection(
       }
       case 'LOFTY': {
         const client = new LoftyClient(credentials)
+        const connected = await client.testConnection()
+        return { success: connected, error: connected ? undefined : 'Connection test failed' }
+      }
+      case 'KVCORE': {
+        const client = new KvcoreClient(credentials)
         const connected = await client.testConnection()
         return { success: connected, error: connected ? undefined : 'Connection test failed' }
       }

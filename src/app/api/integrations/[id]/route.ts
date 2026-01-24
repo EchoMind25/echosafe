@@ -4,13 +4,30 @@ import { encrypt } from '@/lib/integrations/encryption'
 import { testCrmConnection } from '@/lib/integrations/sync-engine'
 
 // ============================================================================
+// FEATURE FLAG: CRM Integrations Coming Soon
+// ============================================================================
+const CRM_INTEGRATIONS_COMING_SOON = true
+
+const comingSoonResponse = () => NextResponse.json({
+  success: false,
+  comingSoon: true,
+  message: 'CRM integrations are coming soon! Your internal CRM is fully available.',
+}, { status: 403 })
+
+// Helper to create typed supabase queries for tables not in generated types
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const fromTable = (supabase: any, table: string) => supabase.from(table)
+
+// ============================================================================
 // GET - Get single integration details
 // ============================================================================
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (CRM_INTEGRATIONS_COMING_SOON) return comingSoonResponse()
+
   try {
     const { id } = await params
     const supabase = await createClient()
@@ -26,8 +43,7 @@ export async function GET(
     }
 
     // Fetch integration
-    const { data: integration, error } = await supabase
-      .from('crm_integrations')
+    const { data: integration, error } = await fromTable(supabase, 'crm_integrations')
       .select(`
         id,
         crm_type,
@@ -35,7 +51,6 @@ export async function GET(
         sync_settings,
         last_sync_at,
         last_error,
-        consecutive_failures,
         created_at,
         updated_at
       `)
@@ -50,23 +65,20 @@ export async function GET(
       )
     }
 
-    // Get sync stats
-    const { count: totalSynced } = await supabase
-      .from('crm_sync_logs')
+    // Get sync stats from crm_integration_logs
+    const { count: totalSynced } = await fromTable(supabase, 'crm_integration_logs')
       .select('*', { count: 'exact', head: true })
       .eq('integration_id', id)
 
-    const { count: successCount } = await supabase
-      .from('crm_sync_logs')
+    const { count: successCount } = await fromTable(supabase, 'crm_integration_logs')
       .select('*', { count: 'exact', head: true })
       .eq('integration_id', id)
-      .eq('status', 'SUCCESS')
+      .eq('status', 'success')
 
-    const { count: failedCount } = await supabase
-      .from('crm_sync_logs')
+    const { count: failedCount } = await fromTable(supabase, 'crm_integration_logs')
       .select('*', { count: 'exact', head: true })
       .eq('integration_id', id)
-      .eq('status', 'FAILED')
+      .eq('status', 'failed')
 
     return NextResponse.json({
       success: true,
@@ -97,6 +109,8 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (CRM_INTEGRATIONS_COMING_SOON) return comingSoonResponse()
+
   try {
     const { id } = await params
     const supabase = await createClient()
@@ -112,8 +126,7 @@ export async function PUT(
     }
 
     // Check integration exists and belongs to user
-    const { data: existing, error: fetchError } = await supabase
-      .from('crm_integrations')
+    const { data: existing, error: fetchError } = await fromTable(supabase, 'crm_integrations')
       .select('id, crm_type, credentials')
       .eq('id', id)
       .eq('user_id', user.id)
@@ -141,17 +154,16 @@ export async function PUT(
     }
 
     // Update status if provided
-    if (status && ['ACTIVE', 'PAUSED'].includes(status)) {
-      updates.status = status
-      // Reset consecutive failures when reactivating
-      if (status === 'ACTIVE') {
-        updates.consecutive_failures = 0
+    if (status && ['active', 'paused'].includes(status.toLowerCase())) {
+      updates.status = status.toLowerCase()
+      // Clear error when reactivating
+      if (status.toLowerCase() === 'active') {
         updates.last_error = null
       }
     }
 
     // Update API key if provided (for Lofty/KVCORE)
-    if (api_key && ['LOFTY', 'KVCORE'].includes(existing.crm_type)) {
+    if (api_key && ['lofty', 'kvcore'].includes(existing.crm_type?.toLowerCase())) {
       const credentials = encrypt(JSON.stringify({ api_key }))
 
       // Test new credentials
@@ -167,8 +179,7 @@ export async function PUT(
     }
 
     // Update integration
-    const { data: integration, error: updateError } = await supabase
-      .from('crm_integrations')
+    const { data: integration, error: updateError } = await fromTable(supabase, 'crm_integrations')
       .update(updates)
       .eq('id', id)
       .select(`
@@ -217,9 +228,11 @@ export async function PUT(
 // ============================================================================
 
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (CRM_INTEGRATIONS_COMING_SOON) return comingSoonResponse()
+
   try {
     const { id } = await params
     const supabase = await createClient()
@@ -235,8 +248,7 @@ export async function DELETE(
     }
 
     // Check integration exists and belongs to user
-    const { data: existing, error: fetchError } = await supabase
-      .from('crm_integrations')
+    const { data: existing, error: fetchError } = await fromTable(supabase, 'crm_integrations')
       .select('id, crm_type')
       .eq('id', id)
       .eq('user_id', user.id)
@@ -250,8 +262,7 @@ export async function DELETE(
     }
 
     // Delete integration (this will cascade delete sync logs due to FK)
-    const { error: deleteError } = await supabase
-      .from('crm_integrations')
+    const { error: deleteError } = await fromTable(supabase, 'crm_integrations')
       .delete()
       .eq('id', id)
 

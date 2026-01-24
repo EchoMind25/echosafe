@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { createBrowserClient } from '@/lib/supabase'
+import type { FtcSubscription, AdminUpload } from '@/lib/supabase/types'
 import {
   Upload,
   FileText,
@@ -14,27 +15,6 @@ import {
   Eye,
   Calendar,
 } from 'lucide-react'
-
-interface FtcSubscription {
-  id: string
-  area_code: string
-  state: string
-  subscription_status: string
-  expires_at: string
-}
-
-interface AdminUpload {
-  id: string
-  area_codes: string[]
-  total_files: number
-  total_records: number
-  status: string
-  progress: Record<string, number>
-  error_message: string | null
-  ftc_release_date: string | null
-  created_at: string
-  completed_at: string | null
-}
 
 interface FileUpload {
   file: File
@@ -68,8 +48,8 @@ export default function AdminUploadsPage() {
         .order('area_code', { ascending: true }),
     ])
 
-    if (uploadsRes.data) setUploads(uploadsRes.data)
-    if (subsRes.data) setSubscriptions(subsRes.data)
+    if (uploadsRes.data) setUploads(uploadsRes.data as AdminUpload[])
+    if (subsRes.data) setSubscriptions(subsRes.data as FtcSubscription[])
   }, [supabase])
 
   useEffect(() => {
@@ -185,9 +165,6 @@ export default function AdminUploadsPage() {
           area_codes: areaCodes,
           total_files: validFiles.length,
           status: 'uploading',
-          ftc_release_date: ftcReleaseDate || null,
-          notify_email: notifyEmail || null,
-          notify_on_complete: !!notifyEmail,
         })
         .select()
         .single()
@@ -274,11 +251,20 @@ export default function AdminUploadsPage() {
     }
   }
 
-  // Calculate overall progress
+  // Calculate overall progress based on status
   const getOverallProgress = (upload: AdminUpload): number => {
-    if (!upload.progress || Object.keys(upload.progress).length === 0) return 0
-    const values = Object.values(upload.progress)
-    return Math.round(values.reduce((a, b) => a + b, 0) / values.length)
+    switch (upload.status) {
+      case 'completed':
+        return 100
+      case 'processing':
+        return 50
+      case 'pending':
+        return 0
+      case 'failed':
+        return 0
+      default:
+        return 0
+    }
   }
 
   return (
@@ -462,7 +448,7 @@ export default function AdminUploadsPage() {
               <tr className="border-b border-slate-700">
                 <th className="text-left py-3 px-4 text-sm font-medium text-slate-400">Date</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-slate-400">Area Codes</th>
-                <th className="text-left py-3 px-4 text-sm font-medium text-slate-400">Records</th>
+                <th className="text-left py-3 px-4 text-sm font-medium text-slate-400">Files</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-slate-400">Progress</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-slate-400">Status</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-slate-400">Actions</th>
@@ -492,7 +478,7 @@ export default function AdminUploadsPage() {
                     </div>
                   </td>
                   <td className="py-3 px-4">
-                    <p className="text-sm text-white">{upload.total_records.toLocaleString()}</p>
+                    <p className="text-sm text-white">{upload.total_files}</p>
                   </td>
                   <td className="py-3 px-4">
                     <div className="w-32">

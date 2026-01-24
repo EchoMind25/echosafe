@@ -2,6 +2,37 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { leadsToCSV } from '@/lib/utils/export-csv'
 import type { CrmLead } from '@/types'
+import type { LeadStatus } from '@/lib/supabase/types'
+
+// Database row type for crm_leads table
+interface CrmLeadRow {
+  id: string
+  user_id: string
+  phone_number: string
+  first_name: string | null
+  last_name: string | null
+  email: string | null
+  address: string | null
+  city: string | null
+  state: string | null
+  zip_code: string | null
+  risk_score: number | null
+  risk_level: string | null
+  dnc_status: boolean | null
+  last_scrubbed_at: string | null
+  status: string | null
+  source: string | null
+  tags: string[] | null
+  notes: string | null
+  assigned_to: string | null
+  last_contact_at: string | null
+  next_followup_at: string | null
+  contact_count: number | null
+  custom_fields: Record<string, unknown> | null
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
 
 // ============================================================================
 // POST - Bulk operations on leads
@@ -47,6 +78,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Limit bulk operations to prevent DoS
+    const MAX_BULK_LEADS = 1000
+    if (lead_ids.length > MAX_BULK_LEADS) {
+      return NextResponse.json(
+        { success: false, message: `Maximum ${MAX_BULK_LEADS} leads per bulk operation` },
+        { status: 400 }
+      )
+    }
+
     // Verify all leads belong to user
     const { data: existingLeads, error: verifyError } = await supabase
       .from('crm_leads')
@@ -85,7 +125,7 @@ export async function POST(request: NextRequest) {
         const { error: updateError, count } = await supabase
           .from('crm_leads')
           .update({
-            status: data.status,
+            status: data.status as LeadStatus,
             updated_at: new Date().toISOString(),
           })
           .eq('user_id', user.id)
@@ -231,7 +271,7 @@ export async function POST(request: NextRequest) {
           .select('*')
           .eq('user_id', user.id)
           .in('id', validIds)
-          .is('deleted_at', null)
+          .is('deleted_at', null) as unknown as { data: CrmLeadRow[] | null; error: Error | null }
 
         if (fetchError) {
           return NextResponse.json(
@@ -240,33 +280,33 @@ export async function POST(request: NextRequest) {
           )
         }
 
-        // Convert database format to CrmLead type
+        // Convert database format to CrmLead type (convert null to undefined)
         const formattedLeads: CrmLead[] = (leadsToExport || []).map(l => ({
           id: l.id,
           userId: l.user_id,
           phoneNumber: l.phone_number,
-          firstName: l.first_name,
-          lastName: l.last_name,
-          email: l.email,
-          address: l.address,
-          city: l.city,
-          state: l.state,
-          zipCode: l.zip_code,
-          riskScore: l.risk_score,
-          riskLevel: l.risk_level,
-          dncStatus: l.dnc_status || false,
-          lastScrubbed: l.last_scrubbed_at,
-          status: l.status?.toUpperCase() || 'NEW',
-          source: l.source,
+          firstName: l.first_name ?? undefined,
+          lastName: l.last_name ?? undefined,
+          email: l.email ?? undefined,
+          address: l.address ?? undefined,
+          city: l.city ?? undefined,
+          state: l.state ?? undefined,
+          zipCode: l.zip_code ?? undefined,
+          riskScore: l.risk_score ?? undefined,
+          riskLevel: l.risk_level?.toUpperCase() as CrmLead['riskLevel'],
+          dncStatus: Boolean(l.dnc_status),
+          lastScrubbed: l.last_scrubbed_at ? new Date(l.last_scrubbed_at) : undefined,
+          status: (l.status?.toUpperCase() || 'NEW') as CrmLead['status'],
+          source: l.source ?? undefined,
           tags: l.tags || [],
-          notes: l.notes,
-          assignedTo: l.assigned_to,
-          lastContactAt: l.last_contact_at,
-          nextFollowupAt: l.next_followup_at,
+          notes: l.notes ?? undefined,
+          assignedTo: l.assigned_to ?? undefined,
+          lastContactAt: l.last_contact_at ? new Date(l.last_contact_at) : undefined,
+          nextFollowupAt: l.next_followup_at ? new Date(l.next_followup_at) : undefined,
           contactCount: l.contact_count || 0,
           customFields: l.custom_fields || {},
-          createdAt: l.created_at,
-          updatedAt: l.updated_at,
+          createdAt: new Date(l.created_at),
+          updatedAt: new Date(l.updated_at),
         }))
 
         const csvContent = leadsToCSV(formattedLeads)

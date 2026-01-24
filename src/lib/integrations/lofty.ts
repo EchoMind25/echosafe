@@ -3,7 +3,7 @@
 // API Key authentication + API client for Lofty CRM
 // ============================================================================
 
-import { decrypt, encrypt, maskSensitive } from './encryption'
+import { decrypt, encrypt } from './encryption'
 
 // ============================================================================
 // CONFIGURATION
@@ -254,7 +254,7 @@ export function mapLeadToLoftyContact(lead: {
   source?: string | null
 }): LoftyContact {
   const contact: LoftyContact = {
-    source: lead.source || 'Echo Mind Compliance',
+    source: lead.source || 'Echo Safe Compliance',
   }
 
   if (lead.first_name) contact.firstName = lead.first_name
@@ -277,9 +277,9 @@ export function mapLeadToLoftyContact(lead: {
   }
 
   if (lead.tags && lead.tags.length > 0) {
-    contact.tags = [...lead.tags, 'Echo Mind - Clean Lead']
+    contact.tags = [...lead.tags, 'Echo Safe - Clean Lead']
   } else {
-    contact.tags = ['Echo Mind - Clean Lead']
+    contact.tags = ['Echo Safe - Clean Lead']
   }
 
   // Store risk score and sync info in custom fields

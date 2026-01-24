@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import type { LeadStatus, RiskLevel } from '@/lib/supabase/types'
 // Phase 2: CRM integration auto-sync
 // import { processAutoSync } from '@/lib/integrations/sync-engine'
 
@@ -52,13 +53,13 @@ export async function GET(request: NextRequest) {
 
     // Apply status filter
     if (status) {
-      const statuses = status.split(',')
+      const statuses = status.split(',') as LeadStatus[]
       query = query.in('status', statuses)
     }
 
     // Apply risk level filter
     if (riskLevel) {
-      const levels = riskLevel.split(',')
+      const levels = riskLevel.split(',') as RiskLevel[]
       query = query.in('risk_level', levels)
     }
 

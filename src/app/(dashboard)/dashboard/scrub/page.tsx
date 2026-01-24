@@ -11,6 +11,8 @@ import {
   Trash2,
   Database,
   Filter,
+  Shield,
+  Brain,
 } from 'lucide-react'
 import { FileDropzone } from '@/components/upload/dropzone'
 import { FilePreview, FilePreviewSkeleton } from '@/components/upload/file-preview'
@@ -409,6 +411,47 @@ export default function ScrubPage() {
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* AI Insights Card */}
+          <div className="bg-purple-50 border border-purple-100 rounded-xl p-4">
+            <div className="flex gap-3">
+              <Brain className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm">
+                <p className="font-medium text-purple-900 mb-1">AI Risk Analysis</p>
+                <p className="text-purple-700">
+                  Get industry-specific compliance insights powered by AI. Analysis is
+                  performed in real-time and never stored.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Privacy Card */}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+            <div className="flex gap-3">
+              <Shield className="w-5 h-5 text-slate-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm">
+                <p className="font-medium text-slate-900 mb-1">Privacy-First Processing</p>
+                <p className="text-slate-600">
+                  Your data is never sold or shared. Export your results and delete
+                  your history anytime.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Legal Disclaimer */}
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+            <p className="text-xs text-amber-900 font-semibold mb-2">
+              Important Legal Notice
+            </p>
+            <ul className="text-xs text-amber-800 space-y-1 list-disc list-inside">
+              <li>This is a data checking tool, not legal advice or a compliance guarantee.</li>
+              <li>You are responsible for TCPA compliance and maintaining your own call records.</li>
+              <li>DNC data is sourced from the FTC and may be incomplete. Verify critical leads independently.</li>
+              <li>Our audit logs document DNC checks only—not your actual calls.</li>
+            </ul>
           </div>
         </div>
       </div>

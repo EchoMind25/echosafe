@@ -9,7 +9,6 @@ import {
   CheckCircle,
   ShieldCheck,
   TrendingUp,
-  Plug,
   UploadCloud,
   Users,
   FileText,
@@ -19,6 +18,7 @@ import {
   Clock,
   Loader2,
   XCircle,
+  AlertTriangle,
 } from 'lucide-react'
 
 // ============================================================================
@@ -102,28 +102,28 @@ export default function DashboardPage() {
     switch (status) {
       case 'completed':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
             <CheckCircle className="w-3 h-3" />
             Completed
           </span>
         )
       case 'processing':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
             <Loader2 className="w-3 h-3 animate-spin" />
             Processing
           </span>
         )
       case 'failed':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
             <XCircle className="w-3 h-3" />
             Failed
           </span>
         )
       default:
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-[#23d8ff]/70">
             <Clock className="w-3 h-3" />
             Pending
           </span>
@@ -132,24 +132,25 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-16">
       {/* Welcome Section */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-[#23d8ff]">
             {isLoading
               ? 'Loading...'
               : user
                 ? `Welcome back, ${user.fullName?.split(' ')[0] || 'there'}!`
                 : 'Welcome back!'}
           </h1>
-          <p className="mt-1 text-slate-600">
-            Here&apos;s your compliance overview
+          <p className="mt-1 text-slate-600 dark:text-[#23d8ff]/70">
+            Your lead screening dashboard
           </p>
         </div>
 
-        {!user && !isLoading && (
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-700 text-sm font-medium rounded-full">
+        {/* Dev Mode Badge - only in development */}
+        {process.env.NODE_ENV === 'development' && !user && !isLoading && (
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-sm font-medium rounded-full">
             <Zap className="w-4 h-4" />
             Development Mode
           </div>
@@ -162,7 +163,7 @@ export default function DashboardPage() {
           icon={CheckCircle}
           iconBg="bg-teal-100"
           iconColor="text-teal-600"
-          title="Leads Scrubbed"
+          title="Leads Checked"
           value={user?.totalLeadsScrubbed ?? stats.totalScrubbed}
           change="+0% from last month"
           changeType="positive"
@@ -183,22 +184,23 @@ export default function DashboardPage() {
           icon={TrendingUp}
           iconBg="bg-teal-100"
           iconColor="text-teal-600"
-          title="Compliance Score"
+          title="Data Quality Score"
           value={`${stats.complianceRate}%`}
-          change={stats.complianceRate >= 95 ? 'Excellent' : 'Good'}
+          change={stats.complianceRate >= 95 ? 'Low Risk' : 'Moderate'}
           changeType="positive"
         />
 
-        <StatCard
-          icon={Plug}
-          iconBg="bg-blue-100"
-          iconColor="text-blue-600"
-          title="Active Integrations"
-          value={0}
-          change="Connect CRM →"
-          changeType="link"
-          linkHref="/settings"
-        />
+        {/* Legal reminder card */}
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-400 dark:border-yellow-600 rounded-xl p-4">
+          <div className="flex items-center gap-2 text-yellow-900 dark:text-yellow-400 mb-2">
+            <AlertTriangle className="w-5 h-5" />
+            <span className="font-semibold text-sm">Legal Reminder</span>
+          </div>
+          <p className="text-xs text-yellow-800 dark:text-yellow-500">
+            Data checking tool only. You are solely responsible for TCPA
+            compliance. Verify independently before calling.
+          </p>
+        </div>
       </div>
 
       {/* Quick Actions */}
@@ -208,7 +210,7 @@ export default function DashboardPage() {
           title="Scrub New Leads"
           description="Upload and process your lead list"
           buttonText="Get Started →"
-          href="/scrub"
+          href="/dashboard/scrub"
           gradientFrom="from-teal-500"
           gradientTo="to-teal-600"
           textMuted="text-teal-100"
@@ -221,7 +223,7 @@ export default function DashboardPage() {
           title="Manage Leads"
           description="View and organize your saved leads"
           buttonText="Open CRM →"
-          href="/crm"
+          href="/dashboard/crm"
           gradientFrom="from-purple-500"
           gradientTo="to-purple-600"
           textMuted="text-purple-100"
@@ -233,32 +235,32 @@ export default function DashboardPage() {
       {/* Recent Uploads */}
       <div className="mt-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-slate-900">Recent Uploads</h2>
+          <h2 className="text-xl font-semibold text-slate-900 dark:text-[#23d8ff]">Recent Uploads</h2>
           <Link
-            href="/history"
-            className="text-sm font-medium text-teal-600 hover:text-teal-700 flex items-center gap-1 transition-colors"
+            href="/dashboard/history"
+            className="text-sm font-medium text-teal-600 hover:text-teal-700 dark:text-[#23d8ff] dark:hover:text-[#23d8ff]/80 flex items-center gap-1 transition-colors"
           >
             View All
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-slate-100 dark:border-zinc-800 overflow-hidden">
           {recentJobs.length > 0 ? (
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-slate-100 dark:divide-zinc-800">
               {recentJobs.map((job) => (
                 <Link
                   key={job.id}
-                  href={`/results/${job.id}`}
-                  className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors"
+                  href={`/dashboard/results/${job.id}`}
+                  className="flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center">
-                      <FileText className="w-5 h-5 text-slate-500" />
+                    <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-zinc-800 flex items-center justify-center">
+                      <FileText className="w-5 h-5 text-slate-500 dark:text-[#23d8ff]/60" />
                     </div>
                     <div>
-                      <p className="font-medium text-slate-900">{job.filename}</p>
-                      <p className="text-sm text-slate-500">
+                      <p className="font-medium text-slate-900 dark:text-[#23d8ff]">{job.filename}</p>
+                      <p className="text-sm text-slate-500 dark:text-[#23d8ff]/60">
                         {job.totalLeads.toLocaleString()} leads
                         {job.status === 'completed' && (
                           <span className="ml-2">
@@ -273,25 +275,25 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex items-center gap-4">
                     {getStatusBadge(job.status)}
-                    <span className="text-sm text-slate-400">{formatDate(job.createdAt)}</span>
-                    <ArrowRight className="w-4 h-4 text-slate-400" />
+                    <span className="text-sm text-slate-400 dark:text-[#23d8ff]/50">{formatDate(job.createdAt)}</span>
+                    <ArrowRight className="w-4 h-4 text-slate-400 dark:text-[#23d8ff]/50" />
                   </div>
                 </Link>
               ))}
             </div>
           ) : (
             <div className="p-8 md:p-12 text-center">
-              <div className="w-20 h-20 mx-auto mb-6 bg-slate-100 rounded-2xl flex items-center justify-center">
-                <FileText className="w-10 h-10 text-slate-400" />
+              <div className="w-20 h-20 mx-auto mb-6 bg-slate-100 dark:bg-zinc-800 rounded-2xl flex items-center justify-center">
+                <FileText className="w-10 h-10 text-slate-400 dark:text-[#23d8ff]/50" />
               </div>
-              <h3 className="text-xl font-semibold text-slate-900 mb-2">
+              <h3 className="text-xl font-semibold text-slate-900 dark:text-[#23d8ff] mb-2">
                 No uploads yet
               </h3>
-              <p className="text-slate-600 mb-6 max-w-sm mx-auto">
+              <p className="text-slate-600 dark:text-[#23d8ff]/70 mb-6 max-w-sm mx-auto">
                 Upload your first lead list to get started with DNC scrubbing
               </p>
               <Link
-                href="/scrub"
+                href="/dashboard/scrub"
                 className="inline-flex items-center gap-2 px-6 py-3 bg-teal-500 hover:bg-teal-600 text-white font-medium rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
               >
                 <UploadCloud className="w-5 h-5" />
@@ -314,13 +316,13 @@ export default function DashboardPage() {
               Ready to Get Started?
             </h2>
             <p className="text-white/80 mb-6 max-w-xl">
-              Create an account to save your scrub history, access your CRM, and sync with your favorite tools.
+              Create an account to save your check history, access your CRM, and sync with your favorite tools.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 mb-6">
               <div className="flex items-center gap-2 text-white/90 text-sm">
                 <Check className="w-5 h-5 text-teal-200" />
-                Unlimited lead scrubbing
+                Unlimited DNC checks
               </div>
               <div className="flex items-center gap-2 text-white/90 text-sm">
                 <Check className="w-5 h-5 text-teal-200" />
@@ -350,6 +352,7 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
     </div>
   )
 }

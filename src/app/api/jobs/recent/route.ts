@@ -50,8 +50,8 @@ export async function GET() {
       status: job.status,
       totalLeads: job.total_leads,
       cleanLeads: job.clean_leads,
-      dncLeads: job.dnc_leads,
-      riskyLeads: job.risky_leads,
+      dncLeads: job.dnc_blocked,
+      riskyLeads: job.caution_leads,
       createdAt: job.created_at,
     }))
 

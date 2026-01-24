@@ -3,6 +3,15 @@ import { createClient } from '@/lib/supabase/server'
 import { manualSync } from '@/lib/integrations/sync-engine'
 
 // ============================================================================
+// FEATURE FLAG: CRM Integrations Coming Soon
+// ============================================================================
+const CRM_INTEGRATIONS_COMING_SOON = true
+
+// Helper to create typed supabase queries for tables not in generated types
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const fromTable = (supabase: any, table: string) => supabase.from(table)
+
+// ============================================================================
 // POST - Trigger manual sync for an integration
 // ============================================================================
 
@@ -10,6 +19,15 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Coming Soon - block all sync operations
+  if (CRM_INTEGRATIONS_COMING_SOON) {
+    return NextResponse.json({
+      success: false,
+      comingSoon: true,
+      message: 'CRM integrations are coming soon! Your internal CRM is fully available.',
+    }, { status: 403 })
+  }
+
   try {
     const { id } = await params
     const supabase = await createClient()
@@ -25,8 +43,7 @@ export async function POST(
     }
 
     // Check integration exists and belongs to user
-    const { data: integration, error: fetchError } = await supabase
-      .from('crm_integrations')
+    const { data: integration, error: fetchError } = await fromTable(supabase, 'crm_integrations')
       .select('id, crm_type, status')
       .eq('id', id)
       .eq('user_id', user.id)
@@ -39,7 +56,7 @@ export async function POST(
       )
     }
 
-    if (integration.status !== 'ACTIVE') {
+    if (integration.status !== 'active') {
       return NextResponse.json(
         { success: false, message: 'Integration is not active. Please reactivate it first.' },
         { status: 400 }

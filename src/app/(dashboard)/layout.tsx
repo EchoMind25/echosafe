@@ -22,24 +22,45 @@ export default function DashboardLayout({
         const result = await getCurrentUser()
         if (result.success && result.data) {
           setUser(result.data)
+        } else {
+          // No authenticated user - redirect to login
+          router.push('/login')
+          return
         }
       } catch (error) {
         console.error('Failed to fetch user:', error)
+        // Auth error - redirect to login
+        router.push('/login')
+        return
       } finally {
         setIsLoading(false)
       }
     }
 
     fetchUser()
-  }, [])
+  }, [router])
 
   const handleSignOut = async () => {
     await signOut()
     router.push('/login')
   }
 
+  // Show loading state while checking auth
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-black flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-echo-cyan-400"></div>
+      </div>
+    )
+  }
+
+  // Don't render dashboard if no user (will redirect)
+  if (!user) {
+    return null
+  }
+
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 dark:bg-black">
       {/* Sidebar */}
       <Sidebar
         user={user}
