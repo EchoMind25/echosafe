@@ -22,10 +22,17 @@ dist/
 # ============================================================================
 .env
 .env.local
+.env.txt
+.env.backup
+*.env
+*.env.*
 .env.development.local
 .env.test.local
 .env.production.local
 .env*.local
+# Catch ALL possible env file patterns
+**/.env*
+!.env.example
 
 # ============================================================================
 # TYPESCRIPT
@@ -161,10 +168,12 @@ secrets.json
 service-account*.json
 
 # ============================================================================
-# N8N WORKFLOWS (may contain workflow configs)
+# N8N WORKFLOWS (may contain workflow configs with credentials)
 # ============================================================================
 *.n8n.json
 n8n-*.json
+bulkscrub*.json
+*workflow*.json
 
 # ============================================================================
 # DATA FILES (may contain PII or test data)
