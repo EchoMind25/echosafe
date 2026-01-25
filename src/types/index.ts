@@ -39,7 +39,7 @@ export interface UserPreferences {
   auto_sync_crm: boolean
   include_risky_in_download: boolean
   default_area_codes: string[]
-  theme: 'light' | 'dark'
+  theme: 'light' | 'dark' | 'system'
 }
 
 // ============================================================================
@@ -168,7 +168,7 @@ export interface CrmLead {
   lastContactAt?: Date
   nextFollowupAt?: Date
   contactCount: number
-  customFields: Record<string, any>
+  customFields: Record<string, unknown>
   createdAt: Date
   updatedAt: Date
   deletedAt?: Date
@@ -227,7 +227,7 @@ export interface CrmCredentials {
   apiKey?: string
   oauthToken?: string
   refreshToken?: string
-  [key: string]: any
+  [key: string]: string | undefined
 }
 
 export interface FieldMapping {
@@ -314,7 +314,7 @@ export interface Payment {
   status: PaymentStatus
   description?: string
   paymentType: PaymentType
-  metadata: Record<string, any>
+  metadata: Record<string, unknown>
   createdAt: Date
 }
 
@@ -322,7 +322,7 @@ export interface Payment {
 // API RESPONSE TYPES
 // ============================================================================
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean
   data?: T
   error?: ApiError
@@ -338,7 +338,7 @@ export interface ApiResponse<T = any> {
 export interface ApiError {
   code: string
   message: string
-  details?: Record<string, any>
+  details?: Record<string, unknown>
 }
 
 // ============================================================================

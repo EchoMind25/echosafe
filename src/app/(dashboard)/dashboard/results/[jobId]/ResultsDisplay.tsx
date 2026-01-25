@@ -87,6 +87,7 @@ export default function ResultsDisplay({ job }: ResultsDisplayProps) {
     if (!job.ai_insights) {
       fetchInsights()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job.id, job.ai_insights])
 
   const fetchInsights = async () => {

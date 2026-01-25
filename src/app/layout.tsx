@@ -74,6 +74,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning className={inter.variable}>
+      <head>
+        {/* Plausible Analytics - Privacy-first, no cookies */}
+        <script
+          defer
+          data-domain="echosafe.app"
+          src="https://plausible.io/js/script.js"
+        />
+      </head>
       <body className={inter.className}>
         <ThemeProvider>
           {children}

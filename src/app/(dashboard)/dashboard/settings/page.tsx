@@ -128,6 +128,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     fetchUserData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleThemeChange = async (newTheme: 'light' | 'dark') => {
@@ -307,6 +308,7 @@ export default function SettingsPage() {
     if (activeTab === 'compliance' && complianceLogs.length === 0) {
       fetchComplianceLogs()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab])
 
   const industryOptions = [

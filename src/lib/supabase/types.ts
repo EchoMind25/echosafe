@@ -194,6 +194,9 @@ export type Database = {
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
           trial_ends_at: string | null
+          trial_started_at: string | null
+          trial_leads_used: number
+          trial_uploads_count: number
           preferences: Record<string, unknown> | null
           total_leads_scrubbed: number
           last_scrub_at: string | null
@@ -222,6 +225,9 @@ export type Database = {
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           trial_ends_at?: string | null
+          trial_started_at?: string | null
+          trial_leads_used?: number
+          trial_uploads_count?: number
           preferences?: Record<string, unknown> | null
           total_leads_scrubbed?: number
           last_scrub_at?: string | null
@@ -250,6 +256,9 @@ export type Database = {
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           trial_ends_at?: string | null
+          trial_started_at?: string | null
+          trial_leads_used?: number
+          trial_uploads_count?: number
           preferences?: Record<string, unknown> | null
           total_leads_scrubbed?: number
           last_scrub_at?: string | null
@@ -1020,7 +1029,39 @@ export type Database = {
         Args: { user_id: string }
         Returns: string[]
       }
-      // New functions for FTC Change List System (PRD v1.2)
+      // Trial management functions
+      get_trial_status: {
+        Args: { p_user_id: string }
+        Returns: {
+          is_on_trial: boolean
+          is_trial_active: boolean
+          trial_expired: boolean
+          leads_limit_reached: boolean
+          uploads_limit_reached: boolean
+          trial_leads_used: number
+          trial_leads_remaining: number
+          trial_uploads_count: number
+          trial_uploads_remaining: number
+          trial_started_at: string | null
+          trial_ends_at: string | null
+          days_remaining: number
+          subscription_status: string
+        }
+      }
+      can_user_upload: {
+        Args: { p_user_id: string; p_lead_count: number }
+        Returns: {
+          can_upload: boolean
+          reason: string | null
+          leads_would_use: number
+          leads_remaining: number
+        }
+      }
+      increment_trial_usage: {
+        Args: { p_user_id: string; p_leads_processed: number }
+        Returns: boolean
+      }
+      // FTC Change List System functions (PRD v1.2)
       was_recently_removed_from_dnc: {
         Args: { phone_num: string }
         Returns: boolean

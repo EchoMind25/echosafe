@@ -9,6 +9,33 @@ import type { TrialStatus, CanUploadResult } from './index'
 import { TRIAL_LIMITS } from './index'
 
 // ============================================================================
+// RPC RESPONSE TYPES
+// ============================================================================
+
+interface TrialStatusRpcResponse {
+  is_on_trial: boolean
+  is_trial_active: boolean
+  trial_expired: boolean
+  leads_limit_reached: boolean
+  uploads_limit_reached: boolean
+  trial_leads_used: number
+  trial_leads_remaining: number
+  trial_uploads_count: number
+  trial_uploads_remaining: number
+  trial_started_at: string | null
+  trial_ends_at: string | null
+  days_remaining: number
+  subscription_status: string
+}
+
+interface CanUploadRpcResponse {
+  can_upload: boolean
+  reason: string | null
+  leads_would_use: number
+  leads_remaining: number
+}
+
+// ============================================================================
 // DATABASE FUNCTIONS
 // ============================================================================
 
@@ -32,20 +59,23 @@ export async function getTrialStatusFromDB(userId: string): Promise<TrialStatus 
     return null
   }
 
+  // Cast to expected type - the RPC function returns this structure
+  const result = data as unknown as TrialStatusRpcResponse
+
   return {
-    isOnTrial: data.is_on_trial,
-    isTrialActive: data.is_trial_active,
-    trialExpired: data.trial_expired,
-    leadsLimitReached: data.leads_limit_reached,
-    uploadsLimitReached: data.uploads_limit_reached,
-    trialLeadsUsed: data.trial_leads_used,
-    trialLeadsRemaining: data.trial_leads_remaining,
-    trialUploadsCount: data.trial_uploads_count,
-    trialUploadsRemaining: data.trial_uploads_remaining,
-    trialStartedAt: data.trial_started_at ? new Date(data.trial_started_at) : null,
-    trialEndsAt: data.trial_ends_at ? new Date(data.trial_ends_at) : null,
-    daysRemaining: data.days_remaining,
-    subscriptionStatus: data.subscription_status,
+    isOnTrial: result.is_on_trial,
+    isTrialActive: result.is_trial_active,
+    trialExpired: result.trial_expired,
+    leadsLimitReached: result.leads_limit_reached,
+    uploadsLimitReached: result.uploads_limit_reached,
+    trialLeadsUsed: result.trial_leads_used,
+    trialLeadsRemaining: result.trial_leads_remaining,
+    trialUploadsCount: result.trial_uploads_count,
+    trialUploadsRemaining: result.trial_uploads_remaining,
+    trialStartedAt: result.trial_started_at ? new Date(result.trial_started_at) : null,
+    trialEndsAt: result.trial_ends_at ? new Date(result.trial_ends_at) : null,
+    daysRemaining: result.days_remaining,
+    subscriptionStatus: result.subscription_status,
   }
 }
 
@@ -76,11 +106,14 @@ export async function canUserUpload(
     }
   }
 
+  // Cast to expected type - the RPC function returns this structure
+  const result = data as unknown as CanUploadRpcResponse
+
   return {
-    canUpload: data.can_upload,
-    reason: data.reason,
-    leadsWouldUse: data.leads_would_use,
-    leadsRemaining: data.leads_remaining,
+    canUpload: result.can_upload,
+    reason: result.reason ?? 'OK',
+    leadsWouldUse: result.leads_would_use,
+    leadsRemaining: result.leads_remaining,
   }
 }
 

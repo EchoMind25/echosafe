@@ -47,7 +47,7 @@ export default function ScrubPage() {
   const router = useRouter()
 
   // Fetch trial status for limit checking
-  const { trialStatus, isLoading: isLoadingTrial } = useTrialStatus()
+  const { trialStatus } = useTrialStatus()
 
   // Upload state
   const [state, setState] = useState<UploadState>({

@@ -457,7 +457,7 @@ async function sendCompletionEmail(
 
   const htmlBody = `
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #14b8a6;">Echo Mind Compliance</h2>
+      <h2 style="color: #14b8a6;">Echo Safe</h2>
       <h3>DNC Bulk Upload Complete</h3>
 
       <p><strong>Upload ID:</strong> ${data.uploadId}</p>

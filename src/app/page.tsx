@@ -147,9 +147,9 @@ export default function LandingPage() {
               <a href="#privacy" className="text-sm font-medium text-echo-neutral-400 hover:text-white transition-colors">
                 Privacy
               </a>
-              <a href="#pricing" className="text-sm font-medium text-echo-neutral-400 hover:text-white transition-colors">
+              <Link href="/pricing" className="text-sm font-medium text-echo-neutral-400 hover:text-white transition-colors">
                 Pricing
-              </a>
+              </Link>
               <a href="#how-it-works" className="text-sm font-medium text-echo-neutral-400 hover:text-white transition-colors">
                 How It Works
               </a>
@@ -187,9 +187,9 @@ export default function LandingPage() {
               <a href="#privacy" className="block py-2 text-echo-neutral-300 hover:text-white transition-colors">
                 Privacy
               </a>
-              <a href="#pricing" className="block py-2 text-echo-neutral-300 hover:text-white transition-colors">
+              <Link href="/pricing" className="block py-2 text-echo-neutral-300 hover:text-white transition-colors">
                 Pricing
-              </a>
+              </Link>
               <a href="#how-it-works" className="block py-2 text-echo-neutral-300 hover:text-white transition-colors">
                 How It Works
               </a>

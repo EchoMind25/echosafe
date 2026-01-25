@@ -280,7 +280,37 @@ export default function PricingPage() {
 
   const faqs = [...baseFaqs, ...contributionFaqs]
 
+  // JSON-LD Structured Data for SEO
+  const pricingSchema = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": "Echo Safe Professional Plan",
+    "description": "Privacy-first DNC lead scrubbing service with unlimited processing, 5 area codes, built-in CRM, and AI-powered compliance insights.",
+    "brand": {
+      "@type": "Brand",
+      "name": "Echo Safe"
+    },
+    "offers": {
+      "@type": "Offer",
+      "url": "https://echosafe.app/pricing",
+      "priceCurrency": "USD",
+      "price": "47.00",
+      "priceValidUntil": "2026-12-31",
+      "availability": "https://schema.org/InStock",
+      "seller": {
+        "@type": "Organization",
+        "name": "Echo Safe"
+      }
+    }
+  }
+
   return (
+    <>
+      {/* Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingSchema) }}
+      />
     <div className="min-h-screen bg-slate-900">
       {/* Expansion Redirect Banner */}
       {showExpansionRedirect && (
@@ -740,5 +770,6 @@ export default function PricingPage() {
         </div>
       </footer>
     </div>
+    </>
   )
 }

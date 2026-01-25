@@ -133,6 +133,8 @@ export async function POST(request: NextRequest) {
         zip_code: lead.zip_code,
       })),
       check_duplicates: options.removeDuplicates ?? true,
+      timestamp: Date.now(),
+      callback_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://echosafe.app'}/api/upload/${job.id}/callback`,
     }
 
     // Send to N8N webhook (async - don't wait for completion)

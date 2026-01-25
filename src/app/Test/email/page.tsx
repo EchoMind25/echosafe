@@ -37,7 +37,7 @@ export default function EmailTestPage() {
 
       const data = await response.json();
       setResults((prev) => ({ ...prev, [type]: data }));
-    } catch (error) {
+    } catch (_error) {
       setResults((prev) => ({
         ...prev,
         [type]: { success: false, error: 'Request failed' },

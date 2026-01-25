@@ -68,9 +68,9 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json()
 
     // Validate theme value if provided
-    if (body.theme !== undefined && !['light', 'dark'].includes(body.theme)) {
+    if (body.theme !== undefined && !['light', 'dark', 'system'].includes(body.theme)) {
       return NextResponse.json(
-        { error: 'Invalid theme value. Must be "light" or "dark"' },
+        { error: 'Invalid theme value. Must be "light", "dark", or "system"' },
         { status: 400 }
       )
     }

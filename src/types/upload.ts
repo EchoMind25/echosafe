@@ -112,12 +112,16 @@ export interface UploadOptions {
  * - job_id: To update upload_history record
  * - leads: Phone numbers to check against DNC
  * - check_duplicates: Optional deduplication flag
+ * - timestamp: Job start time for processing duration calculation
+ * - callback_url: URL for N8N to POST results back to
  */
 export interface N8NWebhookRequest {
   job_id: string
   user_id: string
   leads: ParsedLead[]
   check_duplicates?: boolean
+  timestamp?: number
+  callback_url?: string
 }
 
 /**

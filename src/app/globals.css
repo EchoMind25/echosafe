@@ -3,7 +3,8 @@
 @tailwind utilities;
 
 /* ============================================================================
-   ECHO MIND COMPLIANCE - GLOBAL STYLES
+   ECHO SAFE - GLOBAL STYLES
+   Privacy-First DNC Compliance Platform
    ============================================================================ */
 
 @layer base {
@@ -16,7 +17,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    /* Primary - Echo Mind Teal */
+    /* Primary - Echo Safe Teal */
     --primary: 174 62% 42%;
     --primary-foreground: 0 0% 100%;
 
@@ -88,9 +89,39 @@
     @apply outline-none ring-2 ring-echo-primary-500 ring-offset-2 ring-offset-background;
   }
 
-  /* Selection */
+  /* Custom Text Selection - Echo Safe Teal */
   ::selection {
-    @apply bg-echo-primary-500/20 text-echo-primary-900;
+    background-color: rgba(20, 184, 166, 0.25); /* teal-500 at 25% opacity */
+    color: #0f172a; /* gray-900 for maximum readability */
+  }
+
+  ::-moz-selection {
+    background-color: rgba(20, 184, 166, 0.25);
+    color: #0f172a;
+  }
+
+  /* Enhanced selection for code blocks and pre elements */
+  pre::selection,
+  code::selection {
+    background-color: rgba(20, 184, 166, 0.3); /* Slightly stronger for code */
+    color: #0f172a;
+  }
+
+  pre::-moz-selection,
+  code::-moz-selection {
+    background-color: rgba(20, 184, 166, 0.3);
+    color: #0f172a;
+  }
+
+  /* Selection in dark mode areas */
+  .dark ::selection {
+    background-color: rgba(20, 184, 166, 0.4);
+    color: #f1f5f9; /* gray-100 for dark backgrounds */
+  }
+
+  .dark ::-moz-selection {
+    background-color: rgba(20, 184, 166, 0.4);
+    color: #f1f5f9;
   }
 }
 
