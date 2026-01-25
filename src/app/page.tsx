@@ -100,14 +100,14 @@ export default function LandingPage() {
   ]
 
   const pricingFeatures = [
+    '5 area codes (Utah + Nevada)',
     'Unlimited lead scrubbing',
-    '3 Utah area codes (801, 385, 435)',
-    'AI-powered risk scoring',
-    'Built-in CRM (unlimited leads)',
+    'Built-in CRM (permanent storage)',
+    'AI risk scoring (privacy-first)',
     'Daily FTC DNC updates',
-    'Export in multiple formats',
+    'Upload history (30 days)',
     'Email support',
-    'Delete all data anytime',
+    '7-day free trial',
   ]
 
   const comparisonData = [
@@ -237,8 +237,8 @@ export default function LandingPage() {
 
           {/* Value Prop - Direct Braxton Voice */}
           <p className="mt-6 text-xl md:text-2xl text-echo-neutral-300 font-light animate-slide-up" style={{ animationDelay: '0.1s' }}>
-            AI-powered TCPA compliance for real estate. Unlimited scrubbing, industry-specific insights, complete data control.
-            <span className="text-purple-400"> No tracking. No profiling. No data selling.</span>
+            Unlimited scrubbing, AI risk scoring, built-in CRM. Starting with Utah + Nevada coverage.
+            <span className="text-purple-400"> No tracking. No contracts. Cancel anytime.</span>
           </p>
 
           {/* ROI Statement */}
@@ -255,7 +255,7 @@ export default function LandingPage() {
               href="/signup"
               className="group w-full sm:w-auto inline-flex items-center justify-center gap-2 h-14 px-8 bg-echo-primary-500 hover:bg-echo-primary-600 text-white text-lg font-medium rounded-xl shadow-lg shadow-echo-primary-500/30 hover:shadow-xl hover:shadow-echo-primary-500/40 hover:scale-105 transition-all duration-200"
             >
-              Start 14-Day Free Trial
+              Start 7-Day Free Trial
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Link>
             <Link
@@ -271,11 +271,11 @@ export default function LandingPage() {
           <div className="mt-10 flex flex-wrap items-center justify-center gap-6 text-sm text-echo-neutral-500 animate-slide-up" style={{ animationDelay: '0.4s' }}>
             <div className="flex items-center gap-2">
               <Check className="w-4 h-4 text-green-500" />
-              14-day free trial
+              7-day free trial
             </div>
             <div className="flex items-center gap-2">
               <Check className="w-4 h-4 text-green-500" />
-              No credit card required
+              Cancel anytime
             </div>
             <div className="flex items-center gap-2">
               <Check className="w-4 h-4 text-green-500" />
@@ -465,11 +465,14 @@ export default function LandingPage() {
       <section id="pricing" className="py-20 md:py-32 bg-gradient-to-br from-echo-neutral-900 to-echo-neutral-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 px-4 py-2 mb-6 bg-echo-primary-500/10 border border-echo-primary-500/30 rounded-full">
+              <span className="text-sm font-medium text-echo-primary-400">$47/month - Unlimited Scrubbing</span>
+            </div>
             <h2 className="text-3xl md:text-4xl font-bold text-white">
-              Transparent Pricing. No Hidden Fees. No Data Selling.
+              Transparent Pricing. No Hidden Fees.
             </h2>
             <p className="mt-4 text-lg text-echo-neutral-400">
-              Competitors charge per lead and sell your data for extra revenue. We charge a flat rate and make money the honest way—from your subscription.
+              Flat rate, unlimited scrubbing. Launching with Utah + Nevada coverage (5 area codes).
             </p>
           </div>
 
@@ -517,11 +520,11 @@ export default function LandingPage() {
                   href="/signup"
                   className="block w-full py-4 bg-echo-primary-500 hover:bg-echo-primary-600 text-white text-center text-lg font-semibold rounded-xl shadow-lg shadow-echo-primary-500/30 hover:shadow-xl transition-all"
                 >
-                  Start 14-Day Free Trial
+                  Start 7-Day Free Trial
                 </Link>
 
                 <p className="mt-4 text-center text-sm text-echo-neutral-500">
-                  No credit card required
+                  Cancel anytime before trial ends
                 </p>
 
                 {/* Privacy Badge */}
@@ -542,7 +545,7 @@ export default function LandingPage() {
             Stop Overpaying. Start Protecting Your Privacy.
           </h2>
           <p className="text-xl text-echo-primary-100 mb-4 max-w-2xl mx-auto">
-            14-day free trial. No credit card required. Delete your data anytime.
+            7-day free trial. Cancel anytime. Delete your data anytime.
           </p>
           <p className="text-lg text-echo-primary-200 mb-10 max-w-2xl mx-auto">
             See why real estate professionals are switching to privacy-first DNC compliance.
@@ -551,7 +554,7 @@ export default function LandingPage() {
             href="/signup"
             className="inline-flex items-center gap-2 h-14 px-8 bg-white hover:bg-echo-neutral-100 text-echo-primary-600 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all"
           >
-            Start 14-Day Free Trial
+            Start 7-Day Free Trial
             <ArrowRight className="w-5 h-5" />
           </Link>
         </div>
@@ -560,6 +563,17 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="py-12 bg-echo-neutral-900 border-t border-echo-neutral-800 pb-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Waitlist Note */}
+          <div className="text-center mb-8 pb-8 border-b border-echo-neutral-800">
+            <p className="text-echo-neutral-400">
+              Want coverage in your state?{' '}
+              <Link href="/pricing#waitlist" className="text-echo-primary-400 hover:text-echo-primary-300 font-medium">
+                Join the waitlist
+              </Link>
+              {' '}for Q2 2026 expansion.
+            </p>
+          </div>
+
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             {/* Logo */}
             <div className="flex items-center gap-3">
@@ -574,26 +588,20 @@ export default function LandingPage() {
 
             {/* Links */}
             <div className="flex flex-wrap items-center justify-center gap-6 md:gap-8">
-              <Link href="/features" className="text-sm text-echo-neutral-400 hover:text-white transition-colors">
-                Features
-              </Link>
               <Link href="/pricing" className="text-sm text-echo-neutral-400 hover:text-white transition-colors">
                 Pricing
               </Link>
               <Link href="/privacy" className="text-sm text-echo-neutral-400 hover:text-white transition-colors">
-                Privacy Policy
+                Privacy
               </Link>
               <Link href="/terms" className="text-sm text-echo-neutral-400 hover:text-white transition-colors">
                 Terms
-              </Link>
-              <Link href="/legal/disclaimer" className="text-sm text-echo-neutral-400 hover:text-white transition-colors">
-                Legal Disclaimer
               </Link>
             </div>
 
             {/* Copyright */}
             <p className="text-sm text-echo-neutral-500">
-              &copy; 2026 Echo Safe Systems. We don&apos;t sell your data.
+              &copy; 2026 Echo Safe. We don&apos;t sell your data.
             </p>
           </div>
 

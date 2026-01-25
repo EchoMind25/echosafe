@@ -14,7 +14,31 @@ import {
   ChevronRight,
   ArrowRight,
   Calculator,
+  Bell,
+  Loader2,
+  X,
 } from 'lucide-react'
+import { featureFlags } from '@/lib/feature-flags'
+import { LucideIcon } from 'lucide-react'
+
+interface PricingPlan {
+  name: string
+  price: number
+  period: string
+  description: string
+  highlighted: boolean
+  badge: string | null
+  features: string[]
+  cta: string
+  ctaLink: string
+  icon: LucideIcon
+  gradient: string
+  ctaDisabled?: boolean
+  unlock?: {
+    title: string
+    steps: string[]
+  }
+}
 
 interface UserPricing {
   pricing_tier: string | null
@@ -35,6 +59,11 @@ export default function PricingPage() {
   const [eligibility, setEligibility] = useState<FoundersClubEligibility | null>(null)
   const [, setIsLoading] = useState(true)
   const [leadsPerMonth, setLeadsPerMonth] = useState(1500)
+  const [showExpansionRedirect, setShowExpansionRedirect] = useState(false)
+  const [waitlistEmail, setWaitlistEmail] = useState('')
+  const [waitlistSubmitting, setWaitlistSubmitting] = useState(false)
+  const [waitlistSuccess, setWaitlistSuccess] = useState(false)
+  const [waitlistError, setWaitlistError] = useState<string | null>(null)
   const supabase = createBrowserClient()
 
   // ROI Calculator
@@ -48,6 +77,15 @@ export default function PricingPage() {
   const savingsHigh = competitorCostHigh - echoSafeCost
 
   useEffect(() => {
+    // Check if user was redirected from /expansion
+    if (typeof window !== 'undefined') {
+      const wasRedirected = sessionStorage.getItem('expansion_redirect')
+      if (wasRedirected) {
+        setShowExpansionRedirect(true)
+        sessionStorage.removeItem('expansion_redirect')
+      }
+    }
+
     async function fetchData() {
       try {
         const { data: { user } } = await supabase.auth.getUser()
@@ -63,11 +101,13 @@ export default function PricingPage() {
 
           if (profile) setUserPricing(profile)
 
-          // Check Founder's Club eligibility
-          const response = await fetch('/api/pricing/unlock-founders-club')
-          if (response.ok) {
-            const data = await response.json()
-            setEligibility(data)
+          // Check Founder's Club eligibility only if contributions are enabled
+          if (featureFlags.enableContributions) {
+            const response = await fetch('/api/pricing/unlock-founders-club')
+            if (response.ok) {
+              const data = await response.json()
+              setEligibility(data)
+            }
           }
         }
       } catch (error) {
@@ -80,84 +120,190 @@ export default function PricingPage() {
     fetchData()
   }, [supabase])
 
-  const plans = [
-    {
-      name: 'Standard',
-      price: 47,
-      period: '/month',
-      description: 'Perfect for individual real estate agents',
-      highlighted: false,
-      badge: null,
-      features: [
-        '5 area codes of your choice',
-        'Unlimited lead scrubbing',
-        'CSV upload & download',
-        'Built-in CRM',
-        'Risk scoring with AI',
-        'Email support',
+  // Handle waitlist form submission
+  const handleWaitlistSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!waitlistEmail) return
+
+    setWaitlistSubmitting(true)
+    setWaitlistError(null)
+
+    try {
+      const response = await fetch('/api/waitlist/expansion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: waitlistEmail }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to join waitlist')
+      }
+
+      setWaitlistSuccess(true)
+      setWaitlistEmail('')
+    } catch (error) {
+      setWaitlistError(error instanceof Error ? error.message : 'An error occurred')
+    } finally {
+      setWaitlistSubmitting(false)
+    }
+  }
+
+  // Build plans array based on feature flag
+  const basePlan: PricingPlan = {
+    name: 'Professional',
+    price: 47,
+    period: '/month',
+    description: 'Perfect for individual real estate agents',
+    highlighted: true,
+    badge: 'LAUNCH PRICING',
+    features: [
+      '5 area codes (Utah + Nevada coverage)',
+      'Unlimited lead scrubbing',
+      'Built-in CRM (permanent storage)',
+      'AI risk scoring with industry insights',
+      'Daily FTC DNC updates',
+      'Upload history (30 days)',
+      'Email support',
+      '7-day free trial',
+    ],
+    cta: user ? 'Go to Dashboard' : 'Start Free Trial',
+    ctaLink: user ? '/dashboard' : '/signup',
+    icon: Shield,
+    gradient: 'from-teal-500 to-emerald-500',
+  }
+
+  // Founder's Club plan - only shown when contributions are enabled
+  const foundersClubPlan: PricingPlan | null = featureFlags.enableContributions ? {
+    name: "Founder's Club",
+    price: 47,
+    period: '/month forever',
+    description: 'Unlock all area codes with a one-time contribution',
+    highlighted: false,
+    badge: 'BEST VALUE',
+    features: [
+      'ALL area codes included',
+      'Price locked forever',
+      'Priority support',
+      'Early access to features',
+      'Unlimited team members',
+      'API access (coming soon)',
+    ],
+    cta: eligibility?.isMember
+      ? 'Current Plan'
+      : eligibility?.isEligible
+        ? 'Unlock Now'
+        : `Contribute ${3 - (eligibility?.completedCount || 0)} more area codes`,
+    ctaLink: eligibility?.isEligible ? '/api/pricing/unlock-founders-club' : '/expansion',
+    ctaDisabled: eligibility?.isMember || undefined,
+    icon: Crown,
+    gradient: 'from-purple-500 to-pink-500',
+    unlock: {
+      title: 'How to unlock:',
+      steps: [
+        'Contribute $100 for 3 new area codes',
+        'We purchase them from FTC',
+        'Your $47/month is locked forever',
       ],
-      cta: 'Get Started',
-      ctaLink: user ? '/dashboard' : '/signup',
-      icon: Shield,
-      gradient: 'from-slate-600 to-slate-700',
+    },
+  } : null
+
+  const teamPlan: PricingPlan = {
+    name: 'Team Members',
+    price: 15,
+    period: '/month per seat',
+    description: 'Add team members to your account',
+    highlighted: false,
+    badge: 'ADD-ON',
+    features: [
+      'Access to your area codes',
+      'Shared lead database',
+      'Individual login',
+      'Activity tracking',
+      'Role-based permissions',
+      'Centralized billing',
+    ],
+    cta: 'Add Team Members',
+    ctaLink: user ? '/dashboard/settings' : '/signup',
+    icon: Users,
+    gradient: 'from-blue-500 to-indigo-500',
+  }
+
+  // Filter plans based on feature flag
+  const plans: PricingPlan[] = featureFlags.enableContributions
+    ? [basePlan, foundersClubPlan!, teamPlan]
+    : [basePlan, teamPlan]
+
+  // FAQs for Phase 1 launch
+  const baseFaqs = [
+    {
+      q: "What area codes are included?",
+      a: "Your subscription includes 5 area codes: Utah (801, 385, 435) and Nevada (702, 775). This covers Salt Lake City, Las Vegas, Reno, and surrounding areas.",
     },
     {
-      name: "Founder's Club",
-      price: 47,
-      period: '/month forever',
-      description: 'Unlock all area codes with a one-time contribution',
-      highlighted: true,
-      badge: 'BEST VALUE',
-      features: [
-        'ALL area codes included',
-        'Price locked forever',
-        'Priority support',
-        'Early access to features',
-        'Unlimited team members',
-        'API access (coming soon)',
-      ],
-      cta: eligibility?.isMember
-        ? 'Current Plan'
-        : eligibility?.isEligible
-          ? 'Unlock Now'
-          : `Contribute ${3 - (eligibility?.completedCount || 0)} more area codes`,
-      ctaLink: eligibility?.isEligible ? '/api/pricing/unlock-founders-club' : '/expansion',
-      ctaDisabled: eligibility?.isMember,
-      icon: Crown,
-      gradient: 'from-teal-500 to-emerald-500',
-      unlock: {
-        title: 'How to unlock:',
-        steps: [
-          'Contribute $100 for 3 new area codes',
-          'We purchase them from FTC',
-          'Your $47/month is locked forever',
-        ],
-      },
+      q: "Can I get more area codes?",
+      a: "We're launching with Utah + Nevada coverage. More states coming Q2 2026. Join the waitlist below to be notified when your area is available.",
     },
     {
-      name: 'Team Members',
-      price: 15,
-      period: '/month per seat',
-      description: 'Add team members to your account',
-      highlighted: false,
-      badge: 'ADD-ON',
-      features: [
-        'Access to your area codes',
-        'Shared lead database',
-        'Individual login',
-        'Activity tracking',
-        'Role-based permissions',
-        'Centralized billing',
-      ],
-      cta: 'Add Team Members',
-      ctaLink: user ? '/settings/team' : '/signup',
-      icon: Users,
-      gradient: 'from-blue-500 to-indigo-500',
+      q: "What if I need different coverage?",
+      a: "Email us at support@echosafe.app with your coverage needs. We'll prioritize areas based on demand and notify you when your area is available.",
+    },
+    {
+      q: "Why is Echo Safe so much cheaper than competitors?",
+      a: "Simple: we don't sell your data. Competitors charge per lead because they also monetize your lead data to other agents. We charge a flat subscription rate and that's our only revenue.",
+    },
+    {
+      q: "What's the catch with unlimited scrubbing?",
+      a: "No catch. We pay the FTC a fixed fee per area code ($82/year), not per lookup. So whether you scrub 100 leads or 100,000, our costs are the same. We pass those savings to you.",
+    },
+    {
+      q: 'How often is DNC data updated?',
+      a: 'Daily. Most competitors update monthly or quarterly. We pull fresh FTC data every day and log every check with timestamps and FTC release dates for your compliance records.',
+    },
+    {
+      q: 'Do you sell my lead data to other agents?',
+      a: 'Never. We will never sell, share, or monetize your leads. Our business model is subscriptions, not data brokering. Your leads stay yours.',
+    },
+    {
+      q: "What happens to my data if I cancel?",
+      a: "You have 60 days to export everything. After that, we delete your personal data permanently. Compliance audit logs are anonymized (required by law for 5 years) but can't be linked back to you.",
     },
   ]
 
+  // Additional FAQs when contributions are enabled
+  const contributionFaqs = featureFlags.enableContributions ? [
+    {
+      q: "How does Founder's Club pricing lock work?",
+      a: "Contribute 3 area codes ($300 total) and your $47/month rate locks forever—even if we raise prices. Plus you get ALL area codes at no extra cost. It's our thank-you for helping us expand coverage.",
+    },
+  ] : []
+
+  const faqs = [...baseFaqs, ...contributionFaqs]
+
   return (
     <div className="min-h-screen bg-slate-900">
+      {/* Expansion Redirect Banner */}
+      {showExpansionRedirect && (
+        <div className="bg-purple-500/20 border-b border-purple-500/30">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Bell className="w-5 h-5 text-purple-400" />
+                <p className="text-purple-300 text-sm">
+                  <strong>Area code expansion launching Q2 2026.</strong> Join the waitlist below to be notified when it's available.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowExpansionRedirect(false)}
+                className="text-purple-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="border-b border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -200,18 +346,21 @@ export default function PricingPage() {
       {/* Hero */}
       <section className="py-16 sm:py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 mb-6 bg-purple-500/20 text-purple-400 rounded-full">
+          <div className="inline-flex items-center gap-2 px-4 py-2 mb-6 bg-teal-500/20 text-teal-400 rounded-full">
             <Shield className="w-4 h-4" />
-            <span className="text-sm font-medium">No Data Selling. Ever.</span>
+            <span className="text-sm font-medium">$47/month - Unlimited Scrubbing</span>
           </div>
           <h1 className="text-4xl sm:text-5xl font-bold text-white mb-4">
-            Transparent Pricing. No Hidden Fees.
+            Simple, Honest Pricing
           </h1>
           <p className="text-xl text-slate-400 max-w-2xl mx-auto mb-4">
-            Competitors charge per lead and sell your data for extra revenue. We charge a flat rate and make money the honest way—from your subscription.
+            One plan. Unlimited scrubbing. No per-lead fees. No data selling.
           </p>
           <p className="text-lg text-teal-400 font-medium">
-            $47/month unlimited. Save $1,200+/year. Delete your data anytime.
+            Launching with Utah + Nevada coverage (5 area codes).
+          </p>
+          <p className="text-sm text-slate-500 mt-2">
+            7-day free trial. Cancel anytime before trial ends.
           </p>
 
           {/* Current Plan Badge */}
@@ -219,8 +368,7 @@ export default function PricingPage() {
             <div className="mt-8 inline-flex items-center gap-2 px-4 py-2 bg-teal-500/20 text-teal-400 rounded-full">
               <Star className="w-4 h-4" />
               <span>
-                Current plan: <strong className="capitalize">{userPricing.pricing_tier?.replace('_', ' ') || 'Standard'}</strong>
-                {userPricing.legacy_price_lock && ` ($${userPricing.legacy_price_lock}/mo locked)`}
+                Current plan: <strong className="capitalize">{userPricing.pricing_tier?.replace('_', ' ') || 'Professional'}</strong>
               </span>
             </div>
           )}
@@ -294,7 +442,9 @@ export default function PricingPage() {
       {/* Pricing Cards */}
       <section className="pb-16 sm:pb-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className={`grid grid-cols-1 gap-8 ${
+            featureFlags.enableContributions ? 'md:grid-cols-3' : 'md:grid-cols-2 max-w-4xl mx-auto'
+          }`}>
             {plans.map((plan) => (
               <div
                 key={plan.name}
@@ -393,78 +543,142 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* Area Code Expansion */}
-      <section className="py-16 sm:py-24 bg-slate-800/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-white mb-4">Area Code Expansion</h2>
-            <p className="text-xl text-slate-400 max-w-2xl mx-auto">
-              Need more coverage? Add individual area codes to your subscription.
-            </p>
-          </div>
+      {/* Area Code Expansion Section - conditional based on feature flag */}
+      {featureFlags.enableContributions ? (
+        /* Original expansion section when contributions are enabled */
+        <section className="py-16 sm:py-24 bg-slate-800/50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold text-white mb-4">Area Code Expansion</h2>
+              <p className="text-xl text-slate-400 max-w-2xl mx-auto">
+                Need more coverage? Add individual area codes to your subscription.
+              </p>
+            </div>
 
-          <div className="max-w-3xl mx-auto">
-            <div className="bg-slate-800 rounded-2xl border border-slate-700 p-8">
-              <div className="grid sm:grid-cols-2 gap-8">
-                <div>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                      <MapPin className="w-6 h-6 text-white" />
+            <div className="max-w-3xl mx-auto">
+              <div className="bg-slate-800 rounded-2xl border border-slate-700 p-8">
+                <div className="grid sm:grid-cols-2 gap-8">
+                  <div>
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                        <MapPin className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-white">Add Area Code</h3>
+                        <p className="text-sm text-slate-400">Expand your coverage</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-white">Add Area Code</h3>
-                      <p className="text-sm text-slate-400">Expand your coverage</p>
-                    </div>
+
+                    <ul className="space-y-3 mb-6">
+                      <li className="flex items-center gap-3">
+                        <Check className="w-5 h-5 text-teal-400" />
+                        <span className="text-slate-300">
+                          <strong className="text-white">$100</strong> first year (FTC fee)
+                        </span>
+                      </li>
+                      <li className="flex items-center gap-3">
+                        <Check className="w-5 h-5 text-teal-400" />
+                        <span className="text-slate-300">
+                          <strong className="text-white">$8/month</strong> ongoing
+                        </span>
+                      </li>
+                      <li className="flex items-center gap-3">
+                        <Check className="w-5 h-5 text-teal-400" />
+                        <span className="text-slate-300">Weekly data updates</span>
+                      </li>
+                      <li className="flex items-center gap-3">
+                        <Check className="w-5 h-5 text-teal-400" />
+                        <span className="text-slate-300">Counts toward Founder&apos;s Club</span>
+                      </li>
+                    </ul>
                   </div>
 
-                  <ul className="space-y-3 mb-6">
-                    <li className="flex items-center gap-3">
-                      <Check className="w-5 h-5 text-teal-400" />
-                      <span className="text-slate-300">
-                        <strong className="text-white">$100</strong> first year (FTC fee)
-                      </span>
-                    </li>
-                    <li className="flex items-center gap-3">
-                      <Check className="w-5 h-5 text-teal-400" />
-                      <span className="text-slate-300">
-                        <strong className="text-white">$8/month</strong> ongoing
-                      </span>
-                    </li>
-                    <li className="flex items-center gap-3">
-                      <Check className="w-5 h-5 text-teal-400" />
-                      <span className="text-slate-300">Weekly data updates</span>
-                    </li>
-                    <li className="flex items-center gap-3">
-                      <Check className="w-5 h-5 text-teal-400" />
-                      <span className="text-slate-300">Counts toward Founder's Club</span>
-                    </li>
-                  </ul>
-                </div>
-
-                <div className="flex flex-col justify-between">
-                  <div className="p-4 bg-teal-500/10 border border-teal-500/30 rounded-lg mb-4">
-                    <div className="flex items-center gap-2 text-teal-400 mb-2">
-                      <Zap className="w-5 h-5" />
-                      <span className="font-semibold">Pro Tip</span>
+                  <div className="flex flex-col justify-between">
+                    <div className="p-4 bg-teal-500/10 border border-teal-500/30 rounded-lg mb-4">
+                      <div className="flex items-center gap-2 text-teal-400 mb-2">
+                        <Zap className="w-5 h-5" />
+                        <span className="font-semibold">Pro Tip</span>
+                      </div>
+                      <p className="text-sm text-slate-300">
+                        Contribute 3 area codes ($300 total) to unlock Founder&apos;s Club and get ALL area codes at $47/month forever!
+                      </p>
                     </div>
-                    <p className="text-sm text-slate-300">
-                      Contribute 3 area codes ($300 total) to unlock Founder's Club and get ALL area codes at $47/month forever!
-                    </p>
-                  </div>
 
-                  <Link
-                    href={user ? '/expansion' : '/signup'}
-                    className="w-full py-3 bg-purple-500 hover:bg-purple-600 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
-                  >
-                    Request Area Code
-                    <ChevronRight className="w-4 h-4" />
-                  </Link>
+                    <Link
+                      href={user ? '/expansion' : '/signup'}
+                      className="w-full py-3 bg-purple-500 hover:bg-purple-600 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+                    >
+                      Request Area Code
+                      <ChevronRight className="w-4 h-4" />
+                    </Link>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : (
+        /* Waitlist section when contributions are disabled */
+        <section id="waitlist" className="py-16 sm:py-24 bg-slate-800/50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="max-w-2xl mx-auto text-center">
+              <div className="w-16 h-16 rounded-2xl bg-purple-500/20 flex items-center justify-center mx-auto mb-6">
+                <MapPin className="w-8 h-8 text-purple-400" />
+              </div>
+              <h2 className="text-3xl font-bold text-white mb-4">Need Coverage Outside Utah + Nevada?</h2>
+              <p className="text-xl text-slate-400 mb-2">
+                We&apos;re expanding to more states based on demand.
+              </p>
+              <p className="text-slate-500 mb-8">
+                Join the waitlist to be notified when your state is available.
+              </p>
+
+              {waitlistSuccess ? (
+                <div className="bg-teal-500/20 border border-teal-500/30 rounded-xl p-6">
+                  <Check className="w-10 h-10 text-teal-400 mx-auto mb-3" />
+                  <h3 className="text-lg font-semibold text-white mb-2">You&apos;re on the list!</h3>
+                  <p className="text-slate-400 text-sm">
+                    We&apos;ll email you when more area codes are available.
+                  </p>
+                </div>
+              ) : (
+                <form onSubmit={handleWaitlistSubmit} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+                  <input
+                    type="email"
+                    placeholder="Enter your email"
+                    value={waitlistEmail}
+                    onChange={(e) => setWaitlistEmail(e.target.value)}
+                    required
+                    className="flex-1 px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-purple-500 transition-colors"
+                  />
+                  <button
+                    type="submit"
+                    disabled={waitlistSubmitting}
+                    className="px-6 py-3 bg-purple-500 hover:bg-purple-600 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {waitlistSubmitting ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <>
+                        Join Waitlist
+                        <Bell className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
+
+              {waitlistError && (
+                <p className="mt-4 text-red-400 text-sm">{waitlistError}</p>
+              )}
+
+              <p className="mt-6 text-slate-500 text-sm">
+                Current coverage: Utah (801, 385, 435) + Nevada (702, 775)
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* FAQ */}
       <section className="py-16 sm:py-24">
@@ -474,36 +688,7 @@ export default function PricingPage() {
           </h2>
 
           <div className="space-y-6">
-            {[
-              {
-                q: "Why is Echo Safe so much cheaper than competitors?",
-                a: "Simple: we don't sell your data. Competitors charge per lead because they also monetize your lead data by selling it to other agents. We charge a flat subscription rate and that's our only revenue. No hidden fees, no data selling, no conflicts of interest.",
-              },
-              {
-                q: "What's the catch with unlimited scrubbing?",
-                a: "No catch. We pay the FTC a fixed fee per area code ($82/year), not per lookup. So whether you scrub 100 leads or 100,000, our costs are the same. We pass those savings to you.",
-              },
-              {
-                q: "What's included in the base 5 area codes?",
-                a: "You choose 5 area codes during onboarding—pick the markets you work in most. Need more? Add individual codes for $100/year or unlock all codes with Founder's Club.",
-              },
-              {
-                q: "How does Founder's Club pricing lock work?",
-                a: "Contribute 3 area codes ($300 total) and your $47/month rate locks forever—even if we raise prices. Plus you get ALL area codes at no extra cost. It's our thank-you for helping us expand coverage.",
-              },
-              {
-                q: "What happens to my data if I cancel?",
-                a: "You have 60 days to export everything. After that, we delete your personal data permanently. Compliance audit logs are anonymized (required by law for 5 years) but can't be linked back to you.",
-              },
-              {
-                q: 'How often is DNC data updated?',
-                a: 'Daily. Most competitors update monthly or quarterly. We pull fresh FTC data every day and log every check with timestamps and FTC release dates for your compliance records.',
-              },
-              {
-                q: 'Do you sell my lead data to other agents?',
-                a: 'Never. We will never sell, share, or monetize your leads. Our business model is subscriptions, not data brokering. Your leads stay yours.',
-              },
-            ].map((faq, index) => (
+            {faqs.map((faq, index) => (
               <div key={index} className="bg-slate-800 rounded-xl border border-slate-700 p-6">
                 <h3 className="text-lg font-semibold text-white mb-2">{faq.q}</h3>
                 <p className="text-slate-400">{faq.a}</p>
@@ -521,7 +706,7 @@ export default function PricingPage() {
             Stop Overpaying. Stop Getting Tracked.
           </h2>
           <p className="text-xl text-slate-300 mb-4">
-            14-day free trial. No credit card required. Delete your data anytime.
+            7-day free trial. Cancel anytime. Delete your data anytime.
           </p>
           <p className="text-lg text-slate-400 mb-8">
             Join real estate professionals who save $1,200+/year with privacy-first DNC compliance.
@@ -530,7 +715,7 @@ export default function PricingPage() {
             href={user ? '/dashboard' : '/signup'}
             className="inline-flex items-center gap-2 px-8 py-4 bg-teal-500 hover:bg-teal-600 text-white font-bold text-lg rounded-xl transition-colors"
           >
-            {user ? 'Go to Dashboard' : 'Start 14-Day Free Trial'}
+            {user ? 'Go to Dashboard' : 'Start 7-Day Free Trial'}
             <ArrowRight className="w-5 h-5" />
           </Link>
         </div>
@@ -549,9 +734,6 @@ export default function PricingPage() {
               </Link>
               <Link href="/privacy" className="text-slate-400 hover:text-white text-sm transition-colors">
                 Privacy
-              </Link>
-              <Link href="/contact" className="text-slate-400 hover:text-white text-sm transition-colors">
-                Contact
               </Link>
             </div>
           </div>

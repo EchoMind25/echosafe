@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { getCurrentUser } from '@/core/services/auth.service'
 import type { User } from '@/types'
 import { StatCard, QuickActionCard } from '@/components/dashboard'
+import { TrialStatusBanner, useTrialStatus } from '@/components/trial'
 import {
   CheckCircle,
   ShieldCheck,
@@ -49,6 +50,9 @@ export default function DashboardPage() {
     cleanLeads: 0,
     complianceRate: 100,
   })
+
+  // Fetch trial status for trial banner
+  const { trialStatus } = useTrialStatus()
 
   useEffect(() => {
     async function fetchData() {
@@ -155,6 +159,29 @@ export default function DashboardPage() {
             Development Mode
           </div>
         )}
+      </div>
+
+      {/* Trial Status Banner - Show for trialing users */}
+      {trialStatus && trialStatus.isOnTrial && (
+        <TrialStatusBanner trialStatus={trialStatus} />
+      )}
+
+      {/* Coverage Banner */}
+      <div className="bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-700 rounded-xl p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <p className="font-medium text-teal-900 dark:text-teal-300">Your Coverage: 5 Area Codes</p>
+            <p className="text-sm text-teal-700 dark:text-teal-400">
+              Utah (801, 385, 435) + Nevada (702, 775) • Unlimited scrubbing
+            </p>
+          </div>
+          <Link
+            href="/dashboard/settings?tab=coverage"
+            className="text-sm font-medium text-teal-600 dark:text-teal-400 hover:underline whitespace-nowrap"
+          >
+            View Details →
+          </Link>
+        </div>
       </div>
 
       {/* Stats Grid */}
@@ -330,7 +357,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex items-center gap-2 text-white/90 text-sm">
                 <Check className="w-5 h-5 text-teal-200" />
-                14-day free trial
+                7-day free trial
               </div>
             </div>
 

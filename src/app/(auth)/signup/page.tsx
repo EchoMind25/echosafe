@@ -109,17 +109,19 @@ export default function SignupPage() {
       {/* Header */}
       <div className="text-center">
         <h2 className="text-2xl font-bold text-echo-neutral-900">
-          Create Your Account
+          Start Your Free Trial
         </h2>
         <p className="mt-2 text-sm text-echo-neutral-600">
-          Start scrubbing leads in minutes
+          7 days free, then $47/month. Cancel anytime.
         </p>
       </div>
 
-      {/* Privacy Badge */}
-      <div className="flex items-center justify-center gap-2 px-4 py-2 bg-purple-50 border border-purple-200 rounded-lg">
-        <Shield className="w-4 h-4 text-purple-600" />
-        <span className="text-sm text-purple-800 font-medium">Privacy-First Platform</span>
+      {/* Coverage Info */}
+      <div className="p-4 bg-teal-50 border border-teal-200 rounded-lg">
+        <p className="text-sm font-medium text-teal-900 mb-1">Your Coverage: Utah + Nevada (5 area codes)</p>
+        <p className="text-xs text-teal-700">
+          801, 385, 435 (Utah) + 702, 775 (Nevada). Unlimited scrubbing included.
+        </p>
       </div>
 
       {/* Google OAuth Quick Signup */}

@@ -22,7 +22,11 @@ export interface User {
   subscriptionTier: SubscriptionTier
   stripeCustomerId?: string
   stripeSubscriptionId?: string
+  // Trial abuse prevention fields (7-day trial, 1000 leads, 5 uploads)
+  trialStartedAt?: Date
   trialEndsAt?: Date
+  trialLeadsUsed?: number
+  trialUploadsCount?: number
   preferences: UserPreferences
   totalLeadsScrubbed: number
   lastScrubAt?: Date

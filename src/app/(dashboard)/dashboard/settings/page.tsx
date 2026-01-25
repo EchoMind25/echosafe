@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   User,
   ArrowLeft,
@@ -21,6 +21,7 @@ import {
   Download,
   Sun,
   Moon,
+  MapPin,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { getCurrentUser } from '@/core/services/auth.service'
@@ -60,10 +61,11 @@ interface ComplianceLog {
 // TABS
 // ============================================================================
 
-type TabId = 'profile' | 'data-privacy' | 'compliance' | 'integrations' | 'billing'
+type TabId = 'profile' | 'coverage' | 'data-privacy' | 'compliance' | 'integrations' | 'billing'
 
 const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'profile', label: 'Profile', icon: User },
+  { id: 'coverage', label: 'Coverage', icon: MapPin },
   { id: 'data-privacy', label: 'Data & Privacy', icon: Shield },
   { id: 'compliance', label: 'Compliance Logs', icon: FileText },
   { id: 'integrations', label: 'Integrations', icon: Zap },
@@ -76,7 +78,13 @@ const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
 
 export default function SettingsPage() {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<TabId>('profile')
+  const searchParams = useSearchParams()
+  const tabParam = searchParams.get('tab') as TabId | null
+  const [activeTab, setActiveTab] = useState<TabId>(
+    tabParam && ['profile', 'coverage', 'data-privacy', 'compliance', 'integrations', 'billing'].includes(tabParam)
+      ? tabParam
+      : 'profile'
+  )
   const [user, setUser] = useState<UserType | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [stats, setStats] = useState<UserStats>({
@@ -370,55 +378,55 @@ export default function SettingsPage() {
               {activeTab === 'profile' && (
                 <div className="max-w-xl space-y-6">
                   <div>
-                    <h2 className="text-lg font-semibold text-slate-900 mb-4">Profile Information</h2>
+                    <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Profile Information</h2>
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                           Full Name
                         </label>
                         <input
                           type="text"
                           value={fullName}
                           onChange={(e) => setFullName(e.target.value)}
-                          className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors"
+                          className="w-full px-4 py-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors"
                           placeholder="Your name"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                           Email Address
                         </label>
                         <input
                           type="email"
                           value={user?.email || ''}
                           disabled
-                          className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-500 cursor-not-allowed"
+                          className="w-full px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 cursor-not-allowed"
                         />
-                        <p className="mt-1 text-xs text-slate-500">Email cannot be changed</p>
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Email cannot be changed</p>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                           Company Name
                         </label>
                         <input
                           type="text"
                           value={companyName}
                           onChange={(e) => setCompanyName(e.target.value)}
-                          className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors"
+                          className="w-full px-4 py-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors"
                           placeholder="Your company (optional)"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                           Industry
                         </label>
                         <select
                           value={industry}
                           onChange={(e) => setIndustry(e.target.value)}
-                          className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white transition-colors"
+                          className="w-full px-4 py-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors"
                         >
                           {industryOptions.map((option) => (
                             <option key={option.value} value={option.value}>
@@ -426,7 +434,7 @@ export default function SettingsPage() {
                             </option>
                           ))}
                         </select>
-                        <p className="mt-1 text-xs text-slate-500">
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                           This helps us tailor AI compliance insights to your industry
                         </p>
                       </div>
@@ -538,43 +546,128 @@ export default function SettingsPage() {
                 </div>
               )}
 
+              {/* Coverage Tab */}
+              {activeTab === 'coverage' && (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Your Area Codes</h2>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      5 area codes included with your Professional plan
+                    </p>
+                  </div>
+
+                  {/* Area Codes Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Utah Area Codes */}
+                    <div className="bg-teal-50 dark:bg-teal-900/20 rounded-xl border border-teal-200 dark:border-teal-700 p-5">
+                      <h3 className="font-semibold text-teal-900 dark:text-teal-300 mb-3 flex items-center gap-2">
+                        <MapPin className="w-4 h-4" />
+                        Utah
+                      </h3>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                          <span className="font-mono text-sm text-teal-800 dark:text-teal-300">801</span>
+                          <span className="text-sm text-teal-700 dark:text-teal-400">Salt Lake City metro</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                          <span className="font-mono text-sm text-teal-800 dark:text-teal-300">385</span>
+                          <span className="text-sm text-teal-700 dark:text-teal-400">Salt Lake City overlay</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                          <span className="font-mono text-sm text-teal-800 dark:text-teal-300">435</span>
+                          <span className="text-sm text-teal-700 dark:text-teal-400">Rural Utah</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Nevada Area Codes */}
+                    <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-700 p-5">
+                      <h3 className="font-semibold text-purple-900 dark:text-purple-300 mb-3 flex items-center gap-2">
+                        <MapPin className="w-4 h-4" />
+                        Nevada
+                      </h3>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                          <span className="font-mono text-sm text-purple-800 dark:text-purple-300">702</span>
+                          <span className="text-sm text-purple-700 dark:text-purple-400">Las Vegas metro</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                          <span className="font-mono text-sm text-purple-800 dark:text-purple-300">775</span>
+                          <span className="text-sm text-purple-700 dark:text-purple-400">Reno / Northern Nevada</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Info Box */}
+                  <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
+                    <h4 className="font-medium text-slate-900 dark:text-slate-100 mb-2">What does this mean?</h4>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      Your plan includes unlimited DNC scrubbing for phone numbers in these 5 area codes.
+                      Numbers outside these area codes will show as &quot;uncovered&quot; in your results.
+                    </p>
+                  </div>
+
+                  {/* Expansion Waitlist CTA */}
+                  <div className="bg-gradient-to-r from-teal-500 to-purple-600 rounded-xl p-6 text-white">
+                    <h3 className="text-lg font-semibold mb-2">Want more area codes?</h3>
+                    <p className="text-white/90 mb-4">
+                      We&apos;re launching nationwide expansion in Q2 2026. Join the waitlist to get notified
+                      when new area codes become available.
+                    </p>
+                    <Link
+                      href="/pricing#waitlist"
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-teal-600 font-semibold rounded-lg hover:bg-white/90 transition-colors"
+                    >
+                      Join Waitlist
+                      <ExternalLink className="w-4 h-4" />
+                    </Link>
+                  </div>
+                </div>
+              )}
+
               {/* Data & Privacy Tab */}
               {activeTab === 'data-privacy' && (
                 <div className="space-y-8">
                   {/* Data Summary */}
                   <div>
-                    <h2 className="text-lg font-semibold text-slate-900 mb-4">Your Data Summary</h2>
+                    <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Your Data Summary</h2>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div className="bg-slate-50 rounded-lg p-4">
+                      <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center">
-                            <User className="w-5 h-5 text-teal-600" />
+                          <div className="w-10 h-10 bg-teal-100 dark:bg-teal-900/30 rounded-lg flex items-center justify-center">
+                            <User className="w-5 h-5 text-teal-600 dark:text-teal-400" />
                           </div>
                           <div>
-                            <p className="text-2xl font-bold text-slate-900">{stats.leadCount}</p>
-                            <p className="text-sm text-slate-600">Leads Stored</p>
+                            <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.leadCount}</p>
+                            <p className="text-sm text-slate-600 dark:text-slate-400">Leads Stored</p>
                           </div>
                         </div>
                       </div>
-                      <div className="bg-slate-50 rounded-lg p-4">
+                      <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                            <Database className="w-5 h-5 text-purple-600" />
+                          <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+                            <Database className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                           </div>
                           <div>
-                            <p className="text-2xl font-bold text-slate-900">{stats.uploadCount}</p>
-                            <p className="text-sm text-slate-600">Uploads</p>
+                            <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.uploadCount}</p>
+                            <p className="text-sm text-slate-600 dark:text-slate-400">Uploads</p>
                           </div>
                         </div>
                       </div>
-                      <div className="bg-slate-50 rounded-lg p-4">
+                      <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                            <Zap className="w-5 h-5 text-blue-600" />
+                          <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                            <Zap className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                           </div>
                           <div>
-                            <p className="text-2xl font-bold text-slate-900">{stats.integrationsCount}</p>
-                            <p className="text-sm text-slate-600">Integrations</p>
+                            <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.integrationsCount}</p>
+                            <p className="text-sm text-slate-600 dark:text-slate-400">Integrations</p>
                           </div>
                         </div>
                       </div>
@@ -583,15 +676,15 @@ export default function SettingsPage() {
 
                   {/* Export Data */}
                   <div>
-                    <h2 className="text-lg font-semibold text-slate-900 mb-2">Export Your Data</h2>
-                    <p className="text-sm text-slate-600 mb-4">
+                    <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Export Your Data</h2>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
                       Download all your data anytime. Your data belongs to you.
                     </p>
                     <div className="flex flex-wrap gap-3">
                       <button
                         onClick={() => handleExport('csv')}
                         disabled={isExporting}
-                        className="inline-flex items-center gap-2 px-6 py-3 bg-white hover:bg-gray-50 text-teal-700 font-semibold border border-gray-300 rounded-lg shadow-sm hover:shadow transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-teal-700 dark:text-teal-400 font-semibold border border-slate-300 dark:border-slate-600 rounded-lg shadow-sm hover:shadow transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {isExporting && exportFormat === 'csv' ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -603,7 +696,7 @@ export default function SettingsPage() {
                       <button
                         onClick={() => handleExport('json')}
                         disabled={isExporting}
-                        className="inline-flex items-center gap-2 px-6 py-3 bg-white hover:bg-gray-50 text-teal-700 font-semibold border border-gray-300 rounded-lg shadow-sm hover:shadow transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-teal-700 dark:text-teal-400 font-semibold border border-slate-300 dark:border-slate-600 rounded-lg shadow-sm hover:shadow transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {isExporting && exportFormat === 'json' ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -616,17 +709,17 @@ export default function SettingsPage() {
                   </div>
 
                   {/* Privacy Policy Link */}
-                  <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                  <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
                     <div className="flex items-start gap-3">
-                      <Shield className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" />
+                      <Shield className="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" />
                       <div>
-                        <h3 className="font-medium text-purple-900 mb-1">Privacy-First Platform</h3>
-                        <p className="text-sm text-purple-800 mb-2">
+                        <h3 className="font-medium text-purple-900 dark:text-purple-300 mb-1">Privacy-First Platform</h3>
+                        <p className="text-sm text-purple-800 dark:text-purple-400 mb-2">
                           We don&apos;t track you, profile you, or sell your data. Read our full privacy policy.
                         </p>
                         <Link
                           href="/privacy"
-                          className="inline-flex items-center gap-1 text-sm font-medium text-purple-700 hover:text-purple-900"
+                          className="inline-flex items-center gap-1 text-sm font-medium text-purple-700 dark:text-purple-400 hover:text-purple-900 dark:hover:text-purple-300"
                         >
                           View Privacy Policy
                           <ExternalLink className="w-3 h-3" />
@@ -636,9 +729,9 @@ export default function SettingsPage() {
                   </div>
 
                   {/* Delete Data */}
-                  <div className="pt-6 border-t border-slate-200">
-                    <h2 className="text-lg font-semibold text-red-600 mb-2">Danger Zone</h2>
-                    <p className="text-sm text-slate-600 mb-4">
+                  <div className="pt-6 border-t border-slate-200 dark:border-slate-700">
+                    <h2 className="text-lg font-semibold text-red-600 dark:text-red-400 mb-2">Danger Zone</h2>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
                       Permanently delete all your data. This action cannot be undone.
                     </p>
                     <button
@@ -653,62 +746,62 @@ export default function SettingsPage() {
                   {/* Delete Dialog */}
                   {showDeleteDialog && (
                     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-                      <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl">
+                      <div className="bg-white dark:bg-slate-800 rounded-xl max-w-md w-full p-6 shadow-2xl">
                         <div className="flex items-start gap-4 mb-6">
-                          <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
-                            <AlertTriangle className="w-6 h-6 text-red-600" />
+                          <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+                            <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400" />
                           </div>
                           <div>
-                            <h2 className="text-xl font-bold text-slate-900 mb-2">
+                            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
                               Delete All Data?
                             </h2>
-                            <p className="text-sm text-slate-600">
+                            <p className="text-sm text-slate-600 dark:text-slate-400">
                               This will permanently delete:
                             </p>
                           </div>
                         </div>
 
-                        <div className="bg-red-50 rounded-lg p-4 mb-6 border border-red-200">
-                          <ul className="text-sm text-red-800 space-y-1">
+                        <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4 mb-6 border border-red-200 dark:border-red-800">
+                          <ul className="text-sm text-red-800 dark:text-red-300 space-y-1">
                             <li>• All {stats.leadCount} leads</li>
                             <li>• {stats.uploadCount} upload records</li>
                             <li>• All integrations and settings</li>
                             <li>• Your account profile</li>
                           </ul>
-                          <p className="text-sm text-red-900 font-semibold mt-3">
+                          <p className="text-sm text-red-900 dark:text-red-200 font-semibold mt-3">
                             This cannot be undone. Export your data first if needed.
                           </p>
                         </div>
 
                         <div className="space-y-4 mb-6">
                           <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                               Enter your password
                             </label>
                             <input
                               type="password"
                               value={deletePassword}
                               onChange={(e) => setDeletePassword(e.target.value)}
-                              className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                              className="w-full px-4 py-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500"
                               placeholder="Your password"
                             />
                           </div>
                           <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">
-                              Type <span className="font-mono text-red-600">DELETE_ALL_MY_DATA</span> to confirm
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                              Type <span className="font-mono text-red-600 dark:text-red-400">DELETE_ALL_MY_DATA</span> to confirm
                             </label>
                             <input
                               type="text"
                               value={deleteConfirmation}
                               onChange={(e) => setDeleteConfirmation(e.target.value)}
-                              className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 font-mono"
+                              className="w-full px-4 py-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 font-mono"
                               placeholder="DELETE_ALL_MY_DATA"
                             />
                           </div>
                         </div>
 
                         {deleteError && (
-                          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                          <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-400">
                             {deleteError}
                           </div>
                         )}
@@ -721,7 +814,7 @@ export default function SettingsPage() {
                               setDeleteConfirmation('')
                               setDeleteError(null)
                             }}
-                            className="px-4 py-2.5 text-slate-700 hover:bg-slate-100 rounded-lg font-medium transition-colors"
+                            className="px-4 py-2.5 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg font-medium transition-colors"
                           >
                             Cancel
                           </button>
@@ -744,24 +837,24 @@ export default function SettingsPage() {
               {activeTab === 'compliance' && (
                 <div className="space-y-6">
                   <div>
-                    <h2 className="text-lg font-semibold text-slate-900">Federal Compliance Audit Logs</h2>
-                    <p className="text-sm text-slate-600">
+                    <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Federal Compliance Audit Logs</h2>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
                       View your DNC check history (5-year retention required by TCPA)
                     </p>
                   </div>
 
                   {/* Info Box */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                     <div className="flex items-start gap-3">
-                      <FileText className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                      <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
                       <div>
-                        <h4 className="font-semibold text-blue-900 mb-2">Why These Logs Exist</h4>
-                        <p className="text-sm text-blue-800 mb-2">
+                        <h4 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">Why These Logs Exist</h4>
+                        <p className="text-sm text-blue-800 dark:text-blue-400 mb-2">
                           Federal law (TCPA 47 CFR &sect; 64.1200) requires us to keep audit logs of all
                           DNC registry checks for 5 years. These logs prove compliance in case of
                           regulatory audits.
                         </p>
-                        <p className="text-sm text-blue-800">
+                        <p className="text-sm text-blue-800 dark:text-blue-400">
                           <strong>Privacy Note:</strong> When you delete your data, these logs are
                           anonymized (detached from your account) but retained for the 5-year period.
                           They are NEVER used for profiling, marketing, or analytics.
@@ -776,52 +869,52 @@ export default function SettingsPage() {
                       <Loader2 className="w-8 h-8 text-teal-500 animate-spin" />
                     </div>
                   ) : complianceLogs.length === 0 ? (
-                    <div className="text-center py-12 bg-slate-50 rounded-lg">
-                      <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-slate-900 mb-2">No compliance logs yet</h3>
-                      <p className="text-slate-600">
+                    <div className="text-center py-12 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                      <FileText className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-slate-900 dark:text-white mb-2">No compliance logs yet</h3>
+                      <p className="text-slate-600 dark:text-slate-400">
                         Compliance logs will appear here after you scrub your first leads
                       </p>
                     </div>
                   ) : (
-                    <div className="border border-slate-200 rounded-lg overflow-hidden">
+                    <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
-                          <thead className="bg-slate-50 border-b border-slate-200">
+                          <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
                             <tr>
-                              <th className="px-4 py-3 text-left font-medium text-slate-700">Date</th>
-                              <th className="px-4 py-3 text-left font-medium text-slate-700">Phone Number</th>
-                              <th className="px-4 py-3 text-left font-medium text-slate-700">Result</th>
-                              <th className="px-4 py-3 text-left font-medium text-slate-700">Risk Score</th>
-                              <th className="px-4 py-3 text-left font-medium text-slate-700">Upload Job</th>
+                              <th className="px-4 py-3 text-left font-medium text-slate-700 dark:text-slate-300">Date</th>
+                              <th className="px-4 py-3 text-left font-medium text-slate-700 dark:text-slate-300">Phone Number</th>
+                              <th className="px-4 py-3 text-left font-medium text-slate-700 dark:text-slate-300">Result</th>
+                              <th className="px-4 py-3 text-left font-medium text-slate-700 dark:text-slate-300">Risk Score</th>
+                              <th className="px-4 py-3 text-left font-medium text-slate-700 dark:text-slate-300">Upload Job</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-200">
+                          <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                             {complianceLogs.map((log) => (
-                              <tr key={log.id} className="hover:bg-slate-50">
-                                <td className="px-4 py-3 text-slate-700">
+                              <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                <td className="px-4 py-3 text-slate-700 dark:text-slate-300">
                                   {new Date(log.checked_at).toLocaleDateString()}
                                 </td>
-                                <td className="px-4 py-3 font-mono text-xs text-slate-600">
+                                <td className="px-4 py-3 font-mono text-xs text-slate-600 dark:text-slate-400">
                                   {log.phone_number}
                                 </td>
                                 <td className="px-4 py-3">
                                   <span
                                     className={`inline-flex px-2 py-1 rounded text-xs font-medium ${
                                       log.dnc_status === 'clean'
-                                        ? 'bg-green-100 text-green-800'
+                                        ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400'
                                         : log.dnc_status === 'blocked'
-                                        ? 'bg-red-100 text-red-800'
-                                        : 'bg-yellow-100 text-yellow-800'
+                                        ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400'
+                                        : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400'
                                     }`}
                                   >
                                     {log.dnc_status}
                                   </span>
                                 </td>
-                                <td className="px-4 py-3 text-slate-700">
+                                <td className="px-4 py-3 text-slate-700 dark:text-slate-300">
                                   {log.risk_score ?? '-'}
                                 </td>
-                                <td className="px-4 py-3 text-slate-500 text-xs font-mono">
+                                <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs font-mono">
                                   {log.upload_job_id ? `${log.upload_job_id.substring(0, 8)}...` : '-'}
                                 </td>
                               </tr>
@@ -832,7 +925,7 @@ export default function SettingsPage() {
                     </div>
                   )}
 
-                  <p className="text-sm text-slate-600">
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
                     Showing last 100 checks. Logs retained for 5 years, then automatically purged.
                   </p>
 
@@ -840,7 +933,7 @@ export default function SettingsPage() {
                   <button
                     onClick={exportComplianceLogs}
                     disabled={isExportingLogs || complianceLogs.length === 0}
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-white hover:bg-gray-50 text-teal-700 font-semibold border border-gray-300 rounded-lg shadow-sm hover:shadow transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-teal-700 dark:text-teal-400 font-semibold border border-slate-300 dark:border-slate-600 rounded-lg shadow-sm hover:shadow transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isExportingLogs ? (
                       <Loader2 className="w-4 h-4 animate-spin" />

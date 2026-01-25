@@ -15,6 +15,16 @@ export function welcomeEmail({ name, dashboardUrl }: WelcomeEmailParams): string
 
       <p>Thank you for joining Echo Safe. You now have access to our lead screening tools.</p>
 
+      <!-- Coverage Info Box -->
+      <div style="background: #f0fdfa; border: 2px solid #14b8a6; border-radius: 12px; padding: 20px; margin: 20px 0;">
+        <p style="color: #0d9488; font-weight: 700; margin: 0 0 8px 0;">Your Coverage: 5 Area Codes</p>
+        <p style="color: #134e4a; margin: 0; font-size: 14px;">
+          <strong>Utah:</strong> 801, 385, 435<br>
+          <strong>Nevada:</strong> 702, 775<br>
+          <span style="color: #64748b;">Unlimited scrubbing included with your plan.</span>
+        </p>
+      </div>
+
       <!-- CRITICAL LEGAL DISCLAIMER BOX -->
       <div style="background: #fef3c7; border: 3px solid #f59e0b; border-radius: 12px; padding: 24px; margin: 24px 0;">
         <p style="color: #92400e; font-size: 18px; font-weight: 700; margin-bottom: 16px; text-align: center;">

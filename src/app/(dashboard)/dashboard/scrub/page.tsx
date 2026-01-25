@@ -13,17 +13,21 @@ import {
   Filter,
   Shield,
   Brain,
+  AlertTriangle,
+  ArrowRight,
 } from 'lucide-react'
 import { FileDropzone } from '@/components/upload/dropzone'
 import { FilePreview, FilePreviewSkeleton } from '@/components/upload/file-preview'
+import { TrialStatusBanner, useTrialStatus } from '@/components/trial'
 import { parseFile, getFilePreview } from '@/lib/utils/file-parser'
+import { canUserUploadLeads, TRIAL_LIMITS } from '@/lib/trial'
 import type { FilePreviewData, ParseResult, UploadOptions } from '@/types/upload'
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-type UploadStep = 'select' | 'preview' | 'processing' | 'complete' | 'error'
+type UploadStep = 'select' | 'preview' | 'processing' | 'complete' | 'error' | 'trial_limit'
 
 interface UploadState {
   step: UploadStep
@@ -32,6 +36,7 @@ interface UploadState {
   parseResult: ParseResult | null
   error: string | null
   jobId: string | null
+  trialLimitReason?: string
 }
 
 // ============================================================================
@@ -41,6 +46,9 @@ interface UploadState {
 export default function ScrubPage() {
   const router = useRouter()
 
+  // Fetch trial status for limit checking
+  const { trialStatus, isLoading: isLoadingTrial } = useTrialStatus()
+
   // Upload state
   const [state, setState] = useState<UploadState>({
     step: 'select',
@@ -49,6 +57,7 @@ export default function ScrubPage() {
     parseResult: null,
     error: null,
     jobId: null,
+    trialLimitReason: undefined,
   })
 
   // Upload options
@@ -132,6 +141,22 @@ export default function ScrubPage() {
   const handleSubmit = useCallback(async () => {
     if (!state.parseResult || !state.file) return
 
+    // Pre-check trial limits client-side (for better UX)
+    if (trialStatus) {
+      const leadCount = state.parseResult.stats.validRows -
+        (options.removeDuplicates ? state.parseResult.stats.duplicateCount : 0)
+      const uploadCheck = canUserUploadLeads(trialStatus, leadCount)
+
+      if (!uploadCheck.canUpload) {
+        setState((prev) => ({
+          ...prev,
+          step: 'trial_limit',
+          trialLimitReason: uploadCheck.reason,
+        }))
+        return
+      }
+    }
+
     setIsSubmitting(true)
     setState((prev) => ({ ...prev, step: 'processing' }))
 
@@ -148,12 +173,22 @@ export default function ScrubPage() {
         }),
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Failed to start scrubbing')
+        // Handle trial limit exceeded error from server
+        if (data.error === 'TRIAL_LIMIT_EXCEEDED') {
+          setState((prev) => ({
+            ...prev,
+            step: 'trial_limit',
+            trialLimitReason: data.message,
+          }))
+          return
+        }
+        throw new Error(data.message || 'Failed to start scrubbing')
       }
 
-      const { jobId } = await response.json()
+      const { jobId } = data
 
       setState((prev) => ({
         ...prev,
@@ -172,14 +207,56 @@ export default function ScrubPage() {
     } finally {
       setIsSubmitting(false)
     }
-  }, [state.parseResult, state.file, options, router])
+  }, [state.parseResult, state.file, options, router, trialStatus])
 
   // ============================================================================
   // RENDER
   // ============================================================================
 
+  // Calculate if the current file would exceed trial limits
+  const getTrialWarning = () => {
+    if (!trialStatus || !trialStatus.isOnTrial || !state.parseResult) return null
+
+    const leadCount = state.parseResult.stats.validRows -
+      (options.removeDuplicates ? state.parseResult.stats.duplicateCount : 0)
+
+    if (leadCount > trialStatus.trialLeadsRemaining) {
+      return {
+        type: 'error' as const,
+        message: `This file has ${leadCount.toLocaleString()} leads but you only have ${trialStatus.trialLeadsRemaining.toLocaleString()} trial leads remaining.`,
+      }
+    }
+
+    if (trialStatus.trialUploadsRemaining <= 0) {
+      return {
+        type: 'error' as const,
+        message: `You've used all ${TRIAL_LIMITS.MAX_UPLOADS} trial uploads. Subscribe to continue.`,
+      }
+    }
+
+    // Warning if close to limits (80% or more used)
+    const leadsUsagePercent = (trialStatus.trialLeadsUsed / TRIAL_LIMITS.MAX_LEADS) * 100
+    const uploadsUsagePercent = (trialStatus.trialUploadsCount / TRIAL_LIMITS.MAX_UPLOADS) * 100
+
+    if (leadsUsagePercent >= 80 || uploadsUsagePercent >= 80) {
+      return {
+        type: 'warning' as const,
+        message: `You're approaching your trial limits. ${trialStatus.trialLeadsRemaining.toLocaleString()} leads and ${trialStatus.trialUploadsRemaining} uploads remaining.`,
+      }
+    }
+
+    return null
+  }
+
+  const trialWarning = getTrialWarning()
+
   return (
     <div className="space-y-6">
+      {/* Trial Status Banner - Show for trialing users */}
+      {trialStatus && trialStatus.isOnTrial && (
+        <TrialStatusBanner trialStatus={trialStatus} variant="compact" />
+      )}
+
       {/* Header */}
       <div className="flex items-center gap-4">
         <Link
@@ -236,6 +313,60 @@ export default function ScrubPage() {
                   We're checking your leads against DNC registries. This usually takes a few seconds
                   to a few minutes depending on the file size.
                 </p>
+              </div>
+            </div>
+          )}
+
+          {/* Trial Limit Exceeded State */}
+          {state.step === 'trial_limit' && (
+            <div className="bg-white border-2 border-red-200 rounded-xl p-8">
+              <div className="flex flex-col items-center text-center">
+                <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mb-4">
+                  <AlertTriangle className="w-8 h-8 text-red-600" />
+                </div>
+                <h3 className="text-xl font-semibold text-red-900 mb-2">
+                  Trial Limit Reached
+                </h3>
+                <p className="text-red-700 max-w-md mb-6">
+                  {state.trialLimitReason || 'Your free trial limits have been reached.'}
+                </p>
+
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 max-w-md">
+                  <p className="text-sm text-red-800 font-medium mb-2">
+                    Your 7-day trial includes:
+                  </p>
+                  <ul className="text-sm text-red-700 space-y-1">
+                    <li>• Up to {TRIAL_LIMITS.MAX_LEADS.toLocaleString()} leads total</li>
+                    <li>• Up to {TRIAL_LIMITS.MAX_UPLOADS} file uploads</li>
+                  </ul>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Link
+                    href="/pricing"
+                    className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors"
+                  >
+                    Subscribe Now - ${TRIAL_LIMITS.PRICE_PER_MONTH}/month
+                    <ArrowRight className="w-5 h-5" />
+                  </Link>
+                  <button
+                    onClick={handleFileClear}
+                    className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-echo-neutral-300 hover:border-echo-neutral-400 text-echo-neutral-700 font-medium rounded-lg transition-colors"
+                  >
+                    Try Different File
+                  </button>
+                </div>
+
+                {trialStatus && (
+                  <div className="mt-6 pt-6 border-t border-red-200 w-full max-w-md">
+                    <p className="text-sm text-red-600 mb-2 font-medium">Current Usage:</p>
+                    <div className="flex justify-center gap-6 text-sm text-red-700">
+                      <span>{trialStatus.trialLeadsUsed.toLocaleString()} / {TRIAL_LIMITS.MAX_LEADS.toLocaleString()} leads</span>
+                      <span>{trialStatus.trialUploadsCount} / {TRIAL_LIMITS.MAX_UPLOADS} uploads</span>
+                      <span>{trialStatus.daysRemaining} days left</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -366,6 +497,35 @@ export default function ScrubPage() {
                   </div>
                 </div>
               </dl>
+
+              {/* Trial Warning */}
+              {trialWarning && (
+                <div className={`mt-4 p-3 rounded-lg ${
+                  trialWarning.type === 'error'
+                    ? 'bg-red-50 border border-red-200'
+                    : 'bg-amber-50 border border-amber-200'
+                }`}>
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
+                      trialWarning.type === 'error' ? 'text-red-600' : 'text-amber-600'
+                    }`} />
+                    <p className={`text-sm ${
+                      trialWarning.type === 'error' ? 'text-red-700' : 'text-amber-700'
+                    }`}>
+                      {trialWarning.message}
+                    </p>
+                  </div>
+                  {trialWarning.type === 'error' && (
+                    <Link
+                      href="/pricing"
+                      className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-red-600 hover:text-red-700"
+                    >
+                      Upgrade now
+                      <ArrowRight className="w-3 h-3" />
+                    </Link>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -373,7 +533,7 @@ export default function ScrubPage() {
           <div className="space-y-3">
             <button
               onClick={handleSubmit}
-              disabled={!state.parseResult || state.step !== 'preview' || isSubmitting}
+              disabled={!state.parseResult || state.step !== 'preview' || isSubmitting || trialWarning?.type === 'error'}
               className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-echo-primary-600 hover:bg-echo-primary-700 disabled:bg-echo-neutral-300 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
             >
               {isSubmitting ? (

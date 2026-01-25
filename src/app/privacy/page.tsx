@@ -747,7 +747,7 @@ export default function PrivacyPage() {
               Ready to Experience Privacy-First DNC Compliance?
             </h2>
             <p className="text-slate-600 mb-6">
-              Start your 14-day free trial. No credit card required. Delete anytime. $47/month unlimited.
+              Start your 7-day free trial. Cancel anytime. Delete anytime. $47/month unlimited.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-6">
               <Link

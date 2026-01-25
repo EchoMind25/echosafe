@@ -1,6 +1,6 @@
 -- ============================================
 -- ECHO MIND COMPLIANCE - FULL PRODUCTION SCHEMA
--- Version: 1.6 | Date: January 24, 2026
+-- Version: 1.7 | Date: January 25, 2026
 --
 -- IDEMPOTENT: This script can be safely re-run on existing databases.
 -- All operations use IF NOT EXISTS, OR REPLACE, or DO blocks.
@@ -31,9 +31,9 @@ CREATE TABLE IF NOT EXISTS public.schema_versions (
 -- Record this migration (idempotent via unique check)
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM public.schema_versions WHERE version = '1.6') THEN
+  IF NOT EXISTS (SELECT 1 FROM public.schema_versions WHERE version = '1.7') THEN
     INSERT INTO public.schema_versions (version, description)
-    VALUES ('1.6', 'Full production schema with defensive column additions');
+    VALUES ('1.7', 'Added trial abuse prevention with usage limits (7-day trial, 1000 leads, 5 uploads)');
   END IF;
 END $$;
 
@@ -145,7 +145,12 @@ CREATE TABLE IF NOT EXISTS public.users (
   subscription_status TEXT DEFAULT 'trialing',
   stripe_customer_id TEXT,
   stripe_subscription_id TEXT,
-  trial_ends_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '14 days'),
+  -- Trial abuse prevention fields (7-day trial with usage limits)
+  trial_started_at TIMESTAMPTZ DEFAULT NOW(),
+  trial_ends_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '7 days'),
+  trial_leads_used INTEGER DEFAULT 0,
+  trial_uploads_count INTEGER DEFAULT 0,
+  -- Subscription fields
   subscription_cancelled_at TIMESTAMPTZ,
   pricing_tier TEXT,
   legacy_price_lock DECIMAL(10,2),
@@ -177,13 +182,31 @@ CREATE TABLE IF NOT EXISTS public.users (
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.users (id, email, full_name, avatar_url, industry)
+  INSERT INTO public.users (
+    id,
+    email,
+    full_name,
+    avatar_url,
+    industry,
+    -- Trial abuse prevention: Initialize trial fields on signup
+    subscription_status,
+    trial_started_at,
+    trial_ends_at,
+    trial_leads_used,
+    trial_uploads_count
+  )
   VALUES (
     NEW.id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
     NEW.raw_user_meta_data->>'avatar_url',
-    COALESCE(NEW.raw_user_meta_data->>'industry', 'real-estate-residential')
+    COALESCE(NEW.raw_user_meta_data->>'industry', 'real-estate-residential'),
+    -- Trial starts immediately with 7-day duration and usage limits
+    'trialing',
+    NOW(),
+    NOW() + INTERVAL '7 days',
+    0,
+    0
   )
   ON CONFLICT (id) DO UPDATE SET
     email = EXCLUDED.email,
@@ -652,6 +675,10 @@ SELECT public.add_column_if_not_exists('users', 'created_at', 'TIMESTAMPTZ', 'NO
 SELECT public.add_column_if_not_exists('users', 'updated_at', 'TIMESTAMPTZ', 'NOW()');
 SELECT public.add_column_if_not_exists('users', 'theme_preference', 'TEXT', '''system''');
 SELECT public.add_column_if_not_exists('users', 'is_admin', 'BOOLEAN', 'FALSE');
+-- Trial abuse prevention columns (7-day trial with 1000 leads / 5 uploads limit)
+SELECT public.add_column_if_not_exists('users', 'trial_started_at', 'TIMESTAMPTZ', 'NOW()');
+SELECT public.add_column_if_not_exists('users', 'trial_leads_used', 'INTEGER', '0');
+SELECT public.add_column_if_not_exists('users', 'trial_uploads_count', 'INTEGER', '0');
 
 -- DNC registry columns
 SELECT public.add_column_if_not_exists('dnc_registry', 'created_at', 'TIMESTAMPTZ', 'NOW()');
@@ -965,6 +992,198 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- ============================================
+-- TRIAL ABUSE PREVENTION FUNCTIONS
+-- 7-day trial with 1000 leads / 5 uploads limit
+-- ============================================
+
+-- Check trial status and return detailed info
+CREATE OR REPLACE FUNCTION public.get_trial_status(p_user_id UUID)
+RETURNS TABLE(
+  is_on_trial BOOLEAN,
+  is_trial_active BOOLEAN,
+  trial_expired BOOLEAN,
+  leads_limit_reached BOOLEAN,
+  uploads_limit_reached BOOLEAN,
+  trial_leads_used INTEGER,
+  trial_leads_remaining INTEGER,
+  trial_uploads_count INTEGER,
+  trial_uploads_remaining INTEGER,
+  trial_started_at TIMESTAMPTZ,
+  trial_ends_at TIMESTAMPTZ,
+  days_remaining INTEGER,
+  subscription_status TEXT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_user RECORD;
+  v_is_on_trial BOOLEAN;
+  v_is_trial_active BOOLEAN;
+  v_trial_expired BOOLEAN;
+  v_leads_limit_reached BOOLEAN;
+  v_uploads_limit_reached BOOLEAN;
+  v_leads_remaining INTEGER;
+  v_uploads_remaining INTEGER;
+  v_days_remaining INTEGER;
+BEGIN
+  -- Constants for trial limits
+  -- 1000 leads total OR 5 uploads (whichever comes first)
+
+  SELECT * INTO v_user FROM public.users WHERE id = p_user_id;
+
+  IF v_user IS NULL THEN
+    RETURN;
+  END IF;
+
+  -- Check if user is on trial
+  v_is_on_trial := v_user.subscription_status = 'trialing';
+
+  -- Check if trial has expired (time-based)
+  v_trial_expired := v_user.trial_ends_at <= NOW();
+
+  -- Check if leads limit reached (1000 leads)
+  v_leads_limit_reached := COALESCE(v_user.trial_leads_used, 0) >= 1000;
+
+  -- Check if uploads limit reached (5 uploads)
+  v_uploads_limit_reached := COALESCE(v_user.trial_uploads_count, 0) >= 5;
+
+  -- Trial is active only if on trial AND not expired AND within limits
+  v_is_trial_active := v_is_on_trial
+    AND NOT v_trial_expired
+    AND NOT v_leads_limit_reached
+    AND NOT v_uploads_limit_reached;
+
+  -- Calculate remaining
+  v_leads_remaining := GREATEST(0, 1000 - COALESCE(v_user.trial_leads_used, 0));
+  v_uploads_remaining := GREATEST(0, 5 - COALESCE(v_user.trial_uploads_count, 0));
+  v_days_remaining := GREATEST(0, EXTRACT(DAY FROM (v_user.trial_ends_at - NOW()))::INTEGER);
+
+  RETURN QUERY SELECT
+    v_is_on_trial,
+    v_is_trial_active,
+    v_trial_expired,
+    v_leads_limit_reached,
+    v_uploads_limit_reached,
+    COALESCE(v_user.trial_leads_used, 0),
+    v_leads_remaining,
+    COALESCE(v_user.trial_uploads_count, 0),
+    v_uploads_remaining,
+    v_user.trial_started_at,
+    v_user.trial_ends_at,
+    v_days_remaining,
+    v_user.subscription_status;
+END;
+$$;
+
+-- Check if user can upload (returns false if trial limits exceeded)
+CREATE OR REPLACE FUNCTION public.can_user_upload(p_user_id UUID, p_lead_count INTEGER)
+RETURNS TABLE(
+  can_upload BOOLEAN,
+  reason TEXT,
+  leads_would_use INTEGER,
+  leads_remaining INTEGER
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_user RECORD;
+  v_can_upload BOOLEAN;
+  v_reason TEXT;
+  v_leads_remaining INTEGER;
+BEGIN
+  SELECT * INTO v_user FROM public.users WHERE id = p_user_id;
+
+  IF v_user IS NULL THEN
+    RETURN QUERY SELECT FALSE, 'User not found'::TEXT, 0, 0;
+    RETURN;
+  END IF;
+
+  -- If user is not on trial (active subscriber), always allow
+  IF v_user.subscription_status = 'active' THEN
+    RETURN QUERY SELECT TRUE, 'Active subscription'::TEXT, p_lead_count, 999999;
+    RETURN;
+  END IF;
+
+  -- If user is not on trial at all (canceled, past_due, etc.), deny
+  IF v_user.subscription_status != 'trialing' THEN
+    RETURN QUERY SELECT FALSE, 'Subscription required'::TEXT, p_lead_count, 0;
+    RETURN;
+  END IF;
+
+  -- Check trial time limit (7 days)
+  IF v_user.trial_ends_at <= NOW() THEN
+    RETURN QUERY SELECT FALSE, 'Trial period has expired. Subscribe to continue.'::TEXT, p_lead_count, 0;
+    RETURN;
+  END IF;
+
+  -- Check uploads limit (5 uploads)
+  IF COALESCE(v_user.trial_uploads_count, 0) >= 5 THEN
+    RETURN QUERY SELECT FALSE, 'Trial upload limit reached (5 uploads). Subscribe to continue.'::TEXT, p_lead_count, 0;
+    RETURN;
+  END IF;
+
+  -- Calculate leads remaining
+  v_leads_remaining := 1000 - COALESCE(v_user.trial_leads_used, 0);
+
+  -- Check leads limit (1000 leads total)
+  IF v_leads_remaining <= 0 THEN
+    RETURN QUERY SELECT FALSE, 'Trial lead limit reached (1,000 leads). Subscribe to continue.'::TEXT, p_lead_count, 0;
+    RETURN;
+  END IF;
+
+  -- Check if this upload would exceed the leads limit
+  IF p_lead_count > v_leads_remaining THEN
+    RETURN QUERY SELECT
+      FALSE,
+      format('This upload has %s leads but you only have %s trial leads remaining. Subscribe for unlimited uploads.', p_lead_count, v_leads_remaining)::TEXT,
+      p_lead_count,
+      v_leads_remaining;
+    RETURN;
+  END IF;
+
+  -- All checks passed
+  RETURN QUERY SELECT TRUE, 'OK'::TEXT, p_lead_count, v_leads_remaining;
+END;
+$$;
+
+-- Increment trial usage after successful upload
+CREATE OR REPLACE FUNCTION public.increment_trial_usage(
+  p_user_id UUID,
+  p_leads_processed INTEGER
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_user RECORD;
+BEGIN
+  SELECT * INTO v_user FROM public.users WHERE id = p_user_id;
+
+  IF v_user IS NULL THEN
+    RETURN FALSE;
+  END IF;
+
+  -- Only increment for trialing users
+  IF v_user.subscription_status != 'trialing' THEN
+    RETURN TRUE; -- Active subscribers don't track trial usage
+  END IF;
+
+  -- Increment both counters
+  UPDATE public.users
+  SET
+    trial_leads_used = COALESCE(trial_leads_used, 0) + p_leads_processed,
+    trial_uploads_count = COALESCE(trial_uploads_count, 0) + 1,
+    updated_at = NOW()
+  WHERE id = p_user_id;
+
+  RETURN TRUE;
+END;
+$$;
+
 -- Update timestamps trigger
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -1012,6 +1231,10 @@ GRANT EXECUTE ON FUNCTION public.check_dnc(TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.bulk_check_dnc(TEXT[]) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_risk_score(TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_user_area_codes(UUID) TO authenticated;
+-- Trial abuse prevention functions
+GRANT EXECUTE ON FUNCTION public.get_trial_status(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.can_user_upload(UUID, INTEGER) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.increment_trial_usage(UUID, INTEGER) TO authenticated, service_role;
 
 -- ============================================
 -- 27. ROW LEVEL SECURITY (RLS)
@@ -1407,9 +1630,23 @@ EXCEPTION WHEN undefined_table THEN NULL;
 END $$;
 
 -- ============================================
--- DEPLOYMENT COMPLETE - VERSION 1.6
+-- DEPLOYMENT COMPLETE - VERSION 1.7
 -- ============================================
 -- This script is IDEMPOTENT - safe to re-run on existing databases.
+--
+-- Changes in v1.7:
+-- - Added trial abuse prevention with usage limits:
+--   * 7-day trial period (changed from 14 days)
+--   * 1,000 leads total limit during trial
+--   * 5 uploads limit during trial
+--   * Either limit triggers subscription requirement
+-- - Added trial tracking columns to users table:
+--   * trial_started_at, trial_leads_used, trial_uploads_count
+-- - Added trial checking functions:
+--   * get_trial_status() - returns detailed trial info
+--   * can_user_upload() - checks if upload is allowed
+--   * increment_trial_usage() - updates usage counters
+-- - Updated handle_new_user trigger to initialize trial fields
 --
 -- Changes in v1.6:
 -- - Added defensive column additions BEFORE index creation

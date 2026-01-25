@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { featureFlags } from '@/lib/feature-flags'
 
 // Helper to create typed supabase queries for tables not in generated types
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -7,6 +8,18 @@ const fromTable = (supabase: any, table: string) => supabase.from(table)
 
 export async function POST(_request: NextRequest) {
   try {
+    // Check if contributions are enabled
+    if (!featureFlags.enableContributions) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Founder's Club enrollment is currently unavailable. Launching Q2 2026.",
+          redirectTo: '/pricing'
+        },
+        { status: 403 }
+      )
+    }
+
     const supabase = await createClient()
 
     // Get current user
@@ -124,6 +137,19 @@ export async function POST(_request: NextRequest) {
 // GET: Check eligibility
 export async function GET(_request: NextRequest) {
   try {
+    // If contributions are disabled, return disabled status
+    if (!featureFlags.enableContributions) {
+      return NextResponse.json({
+        success: true,
+        isEligible: false,
+        isMember: false,
+        completedCount: 0,
+        requiredCount: 3,
+        featureDisabled: true,
+        message: "Founder's Club launching Q2 2026",
+      })
+    }
+
     const supabase = await createClient()
 
     const { data: { user }, error: authError } = await supabase.auth.getUser()

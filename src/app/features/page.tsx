@@ -131,7 +131,7 @@ export default function FeaturesPage() {
               href="/signup"
               className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-teal-500 hover:bg-teal-600 text-white font-medium rounded-lg transition-colors"
             >
-              Start 14-Day Free Trial
+              Start 7-Day Free Trial
               <ArrowRight className="w-4 h-4" />
             </Link>
             <Link
@@ -394,7 +394,7 @@ export default function FeaturesPage() {
             Ready for Privacy-First Compliance?
           </h2>
           <p className="text-xl text-teal-100 mb-4">
-            14-day free trial. No credit card required. Delete your data anytime.
+            7-day free trial. Cancel anytime. Delete your data anytime.
           </p>
           <p className="text-lg text-teal-200 mb-8">
             $47/month unlimited. Save $1,200+/year vs per-lead pricing.
@@ -403,7 +403,7 @@ export default function FeaturesPage() {
             href="/signup"
             className="inline-flex items-center gap-2 px-8 py-4 bg-white hover:bg-slate-100 text-teal-600 font-bold text-lg rounded-xl transition-colors"
           >
-            Start 14-Day Free Trial
+            Start 7-Day Free Trial
             <ArrowRight className="w-5 h-5" />
           </Link>
         </div>

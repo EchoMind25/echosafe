@@ -261,11 +261,11 @@ export default function TermsPage() {
                 </div>
                 <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
                   <h3 className="font-semibold text-slate-900 mb-2">Free Trial</h3>
-                  <p className="text-3xl font-bold text-slate-700 mb-2">14 days</p>
+                  <p className="text-3xl font-bold text-slate-700 mb-2">7 days</p>
                   <ul className="space-y-1 text-sm text-slate-700">
-                    <li>&bull; No credit card required</li>
-                    <li>&bull; Full feature access</li>
-                    <li>&bull; Cancel anytime</li>
+                    <li>&bull; Up to 1,000 leads</li>
+                    <li>&bull; Up to 5 uploads</li>
+                    <li>&bull; Cancel anytime before trial ends</li>
                   </ul>
                 </div>
               </div>
@@ -556,7 +556,7 @@ export default function TermsPage() {
               Ready to get started?
             </h2>
             <p className="text-slate-600 mb-6">
-              Start your 14-day free trial. No credit card required.
+              Start your 7-day free trial. Cancel anytime before trial ends.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link

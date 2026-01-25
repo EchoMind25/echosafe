@@ -1,0 +1,217 @@
+// ============================================================================
+// TRIAL ABUSE PREVENTION - SERVER-SIDE SERVICE
+// Database interactions for trial checking and usage tracking
+// ============================================================================
+
+import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import type { TrialStatus, CanUploadResult } from './index'
+import { TRIAL_LIMITS } from './index'
+
+// ============================================================================
+// DATABASE FUNCTIONS
+// ============================================================================
+
+/**
+ * Get trial status from database (server-side)
+ * Uses the get_trial_status database function for consistency
+ */
+export async function getTrialStatusFromDB(userId: string): Promise<TrialStatus | null> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .rpc('get_trial_status', { p_user_id: userId })
+    .single()
+
+  if (error) {
+    console.error('Error fetching trial status:', error)
+    return null
+  }
+
+  if (!data) {
+    return null
+  }
+
+  return {
+    isOnTrial: data.is_on_trial,
+    isTrialActive: data.is_trial_active,
+    trialExpired: data.trial_expired,
+    leadsLimitReached: data.leads_limit_reached,
+    uploadsLimitReached: data.uploads_limit_reached,
+    trialLeadsUsed: data.trial_leads_used,
+    trialLeadsRemaining: data.trial_leads_remaining,
+    trialUploadsCount: data.trial_uploads_count,
+    trialUploadsRemaining: data.trial_uploads_remaining,
+    trialStartedAt: data.trial_started_at ? new Date(data.trial_started_at) : null,
+    trialEndsAt: data.trial_ends_at ? new Date(data.trial_ends_at) : null,
+    daysRemaining: data.days_remaining,
+    subscriptionStatus: data.subscription_status,
+  }
+}
+
+/**
+ * Check if user can upload (server-side)
+ * Uses the can_user_upload database function for authoritative check
+ */
+export async function canUserUpload(
+  userId: string,
+  leadCount: number
+): Promise<CanUploadResult> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .rpc('can_user_upload', {
+      p_user_id: userId,
+      p_lead_count: leadCount,
+    })
+    .single()
+
+  if (error) {
+    console.error('Error checking upload permission:', error)
+    return {
+      canUpload: false,
+      reason: 'Unable to verify trial status. Please try again.',
+      leadsWouldUse: leadCount,
+      leadsRemaining: 0,
+    }
+  }
+
+  return {
+    canUpload: data.can_upload,
+    reason: data.reason,
+    leadsWouldUse: data.leads_would_use,
+    leadsRemaining: data.leads_remaining,
+  }
+}
+
+/**
+ * Increment trial usage after successful upload (server-side)
+ * Call this AFTER the upload is successfully processed
+ */
+export async function incrementTrialUsage(
+  userId: string,
+  leadsProcessed: number
+): Promise<boolean> {
+  // Use admin client to ensure we have permission to update
+  const adminClient = createAdminClient()
+
+  const { data, error } = await adminClient
+    .rpc('increment_trial_usage', {
+      p_user_id: userId,
+      p_leads_processed: leadsProcessed,
+    })
+
+  if (error) {
+    console.error('Error incrementing trial usage:', error)
+    return false
+  }
+
+  return data === true
+}
+
+/**
+ * Direct database update for trial usage (alternative to RPC)
+ * Use this if the RPC function is not available
+ */
+export async function updateTrialUsageDirect(
+  userId: string,
+  leadsProcessed: number
+): Promise<boolean> {
+  const adminClient = createAdminClient()
+
+  // First get current user data to check subscription status
+  const { data: userData, error: userError } = await adminClient
+    .from('users')
+    .select('subscription_status, trial_leads_used, trial_uploads_count')
+    .eq('id', userId)
+    .single()
+
+  if (userError || !userData) {
+    console.error('Error fetching user for trial update:', userError)
+    return false
+  }
+
+  // Only update for trialing users
+  if (userData.subscription_status !== 'trialing') {
+    return true // Active subscribers don't track trial usage
+  }
+
+  // Update trial counters
+  const { error: updateError } = await adminClient
+    .from('users')
+    .update({
+      trial_leads_used: (userData.trial_leads_used ?? 0) + leadsProcessed,
+      trial_uploads_count: (userData.trial_uploads_count ?? 0) + 1,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', userId)
+
+  if (updateError) {
+    console.error('Error updating trial usage:', updateError)
+    return false
+  }
+
+  return true
+}
+
+/**
+ * Get trial status directly from users table (no RPC)
+ * Use this as a fallback if the RPC function is not available
+ */
+export async function getTrialStatusDirect(userId: string): Promise<TrialStatus | null> {
+  const supabase = await createClient()
+
+  const { data: userData, error } = await supabase
+    .from('users')
+    .select(`
+      subscription_status,
+      trial_started_at,
+      trial_ends_at,
+      trial_leads_used,
+      trial_uploads_count
+    `)
+    .eq('id', userId)
+    .single()
+
+  if (error || !userData) {
+    console.error('Error fetching user trial data:', error)
+    return null
+  }
+
+  const now = new Date()
+  const isOnTrial = userData.subscription_status === 'trialing'
+  const trialEndsAt = userData.trial_ends_at ? new Date(userData.trial_ends_at) : null
+  const trialExpired = trialEndsAt ? trialEndsAt <= now : false
+
+  const trialLeadsUsed = userData.trial_leads_used ?? 0
+  const trialUploadsCount = userData.trial_uploads_count ?? 0
+
+  const leadsLimitReached = trialLeadsUsed >= TRIAL_LIMITS.MAX_LEADS
+  const uploadsLimitReached = trialUploadsCount >= TRIAL_LIMITS.MAX_UPLOADS
+
+  const isTrialActive = isOnTrial && !trialExpired && !leadsLimitReached && !uploadsLimitReached
+
+  const trialLeadsRemaining = Math.max(0, TRIAL_LIMITS.MAX_LEADS - trialLeadsUsed)
+  const trialUploadsRemaining = Math.max(0, TRIAL_LIMITS.MAX_UPLOADS - trialUploadsCount)
+
+  let daysRemaining = 0
+  if (trialEndsAt && trialEndsAt > now) {
+    daysRemaining = Math.ceil((trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+  }
+
+  return {
+    isOnTrial,
+    isTrialActive,
+    trialExpired,
+    leadsLimitReached,
+    uploadsLimitReached,
+    trialLeadsUsed,
+    trialLeadsRemaining,
+    trialUploadsCount,
+    trialUploadsRemaining,
+    trialStartedAt: userData.trial_started_at ? new Date(userData.trial_started_at) : null,
+    trialEndsAt,
+    daysRemaining,
+    subscriptionStatus: userData.subscription_status,
+  }
+}

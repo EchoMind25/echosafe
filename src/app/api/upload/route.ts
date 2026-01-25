@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { removeDuplicates } from '@/lib/utils/duplicate-detector'
+import { getTrialStatusDirect, updateTrialUsageDirect } from '@/lib/trial/server'
+import { canUserUploadLeads } from '@/lib/trial'
 import type { ParsedLead, UploadOptions, N8NWebhookRequest } from '@/types/upload'
 
 // ============================================================================
@@ -50,6 +52,36 @@ export async function POST(request: NextRequest) {
         { success: false, message: 'Filename is required' },
         { status: 400 }
       )
+    }
+
+    // =========================================================================
+    // TRIAL ABUSE PREVENTION CHECK
+    // Check if user can upload based on trial limits (7 days, 1000 leads, 5 uploads)
+    // =========================================================================
+    const trialStatus = await getTrialStatusDirect(user.id)
+
+    if (trialStatus) {
+      const uploadCheck = canUserUploadLeads(trialStatus, leads.length)
+
+      if (!uploadCheck.canUpload) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: uploadCheck.reason,
+            error: 'TRIAL_LIMIT_EXCEEDED',
+            trialStatus: {
+              isOnTrial: trialStatus.isOnTrial,
+              trialExpired: trialStatus.trialExpired,
+              leadsLimitReached: trialStatus.leadsLimitReached,
+              uploadsLimitReached: trialStatus.uploadsLimitReached,
+              trialLeadsRemaining: trialStatus.trialLeadsRemaining,
+              trialUploadsRemaining: trialStatus.trialUploadsRemaining,
+              daysRemaining: trialStatus.daysRemaining,
+            },
+          },
+          { status: 403 }
+        )
+      }
     }
 
     // Process leads - remove duplicates if requested
@@ -162,6 +194,14 @@ export async function POST(request: NextRequest) {
         options,
       },
     })
+
+    // =========================================================================
+    // INCREMENT TRIAL USAGE
+    // Track this upload against trial limits (for trialing users only)
+    // =========================================================================
+    if (trialStatus?.isOnTrial) {
+      await updateTrialUsageDirect(user.id, processedLeads.length)
+    }
 
     return NextResponse.json({
       success: true,

@@ -89,7 +89,11 @@ function mapToFullUser(supabaseUser: SupabaseUser, profile?: Record<string, unkn
     subscriptionTier: (profile?.subscription_tier as SubscriptionTier) ?? 'BASE',
     stripeCustomerId: profile?.stripe_customer_id as string | undefined,
     stripeSubscriptionId: profile?.stripe_subscription_id as string | undefined,
+    // Trial abuse prevention fields
+    trialStartedAt: profile?.trial_started_at ? new Date(profile.trial_started_at as string) : undefined,
     trialEndsAt: profile?.trial_ends_at ? new Date(profile.trial_ends_at as string) : undefined,
+    trialLeadsUsed: (profile?.trial_leads_used as number) ?? 0,
+    trialUploadsCount: (profile?.trial_uploads_count as number) ?? 0,
     preferences: (profile?.preferences as UserPreferences) ?? defaultPreferences,
     totalLeadsScrubbed: (profile?.total_leads_scrubbed as number) ?? 0,
     lastScrubAt: profile?.last_scrub_at ? new Date(profile.last_scrub_at as string) : undefined,
