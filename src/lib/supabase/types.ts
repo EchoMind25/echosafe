@@ -533,6 +533,11 @@ export type Database = {
           area_codes_used: string[] | null
           created_at: string
           processed_leads: number | null
+          // Retry functionality fields
+          pending_leads: unknown[] | null
+          retry_count: number | null
+          last_retry_at: string | null
+          completed_at: string | null
         }
         Insert: {
           id?: string
@@ -557,6 +562,11 @@ export type Database = {
           area_codes_used?: string[] | null
           created_at?: string
           processed_leads?: number | null
+          // Retry functionality fields
+          pending_leads?: unknown[] | null
+          retry_count?: number | null
+          last_retry_at?: string | null
+          completed_at?: string | null
         }
         Update: {
           id?: string
@@ -581,6 +591,11 @@ export type Database = {
           area_codes_used?: string[] | null
           created_at?: string
           processed_leads?: number | null
+          // Retry functionality fields
+          pending_leads?: unknown[] | null
+          retry_count?: number | null
+          last_retry_at?: string | null
+          completed_at?: string | null
         }
         Relationships: []
       }

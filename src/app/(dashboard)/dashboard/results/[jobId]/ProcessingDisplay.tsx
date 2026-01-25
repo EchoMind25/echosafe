@@ -52,6 +52,8 @@ export default function ProcessingDisplay({
   const [error, setError] = useState<string | null>(null)
   const [isPolling, setIsPolling] = useState(true)
   const [pollCount, setPollCount] = useState(0)
+  const [isRetrying, setIsRetrying] = useState(false)
+  const [retryError, setRetryError] = useState<string | null>(null)
 
   // Fetch job status
   const fetchStatus = useCallback(async () => {
@@ -103,6 +105,33 @@ export default function ProcessingDisplay({
 
     return () => clearInterval(interval)
   }, [isPolling, fetchStatus, pollCount])
+
+  // Handle retry
+  const handleRetry = async () => {
+    setIsRetrying(true)
+    setRetryError(null)
+
+    try {
+      const response = await fetch(`/api/upload/${jobId}/retry`, {
+        method: 'POST',
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Reset state and start polling again
+        setError(null)
+        setIsPolling(true)
+        setPollCount(0)
+      } else {
+        setRetryError(data.message || 'Failed to retry')
+      }
+    } catch {
+      setRetryError('Failed to initiate retry. Please try again.')
+    } finally {
+      setIsRetrying(false)
+    }
+  }
 
   // Progress percentage
   const progress = jobStatus?.progress || 0
@@ -161,20 +190,22 @@ export default function ProcessingDisplay({
           <div className="p-6">
             <div className="flex items-start gap-4 p-4 bg-red-50 border border-red-200 rounded-lg">
               <AlertCircle className="w-6 h-6 text-red-500 flex-shrink-0" />
-              <div>
+              <div className="flex-1">
                 <h3 className="font-semibold text-red-900">Processing Failed</h3>
                 <p className="text-red-700 mt-1">{error}</p>
+                {retryError && (
+                  <p className="text-red-600 text-sm mt-2 p-2 bg-red-100 rounded">
+                    {retryError}
+                  </p>
+                )}
                 <div className="mt-4 flex gap-3">
                   <button
-                    onClick={() => {
-                      setError(null)
-                      setIsPolling(true)
-                      setPollCount(0)
-                    }}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    onClick={handleRetry}
+                    disabled={isRetrying}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <RefreshCw className="w-4 h-4" />
-                    Retry
+                    <RefreshCw className={`w-4 h-4 ${isRetrying ? 'animate-spin' : ''}`} />
+                    {isRetrying ? 'Retrying...' : 'Retry'}
                   </button>
                   <Link
                     href="/dashboard/scrub"

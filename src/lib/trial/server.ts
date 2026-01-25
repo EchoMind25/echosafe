@@ -4,7 +4,7 @@
 // ============================================================================
 
 import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createAdminClient, ensureUserExists } from '@/lib/supabase/admin'
 import type { TrialStatus, CanUploadResult } from './index'
 import { TRIAL_LIMITS } from './index'
 
@@ -194,7 +194,7 @@ export async function updateTrialUsageDirect(
 export async function getTrialStatusDirect(userId: string): Promise<TrialStatus | null> {
   const supabase = await createClient()
 
-  const { data: userData, error } = await supabase
+  let { data: userData, error } = await supabase
     .from('users')
     .select(`
       subscription_status,
@@ -205,6 +205,38 @@ export async function getTrialStatusDirect(userId: string): Promise<TrialStatus 
     `)
     .eq('id', userId)
     .single()
+
+  // If user record doesn't exist, try to create it
+  if (error?.code === 'PGRST116' || !userData) {
+    console.log('[Trial] User record missing, attempting to create...')
+
+    // Get auth user data to create record
+    const { data: { user: authUser } } = await supabase.auth.getUser()
+
+    if (authUser) {
+      await ensureUserExists(userId, authUser.email || '', {
+        full_name: authUser.user_metadata?.full_name,
+        avatar_url: authUser.user_metadata?.avatar_url,
+        industry: authUser.user_metadata?.industry,
+      })
+
+      // Retry fetch
+      const retry = await supabase
+        .from('users')
+        .select(`
+          subscription_status,
+          trial_started_at,
+          trial_ends_at,
+          trial_leads_used,
+          trial_uploads_count
+        `)
+        .eq('id', userId)
+        .single()
+
+      userData = retry.data
+      error = retry.error
+    }
+  }
 
   if (error || !userData) {
     console.error('Error fetching user trial data:', error)

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { ensureUserExists } from '@/lib/supabase/admin'
 
 // ============================================================================
 // PATCH /api/user/profile
@@ -36,6 +37,12 @@ export async function PATCH(request: NextRequest) {
     if (updateAuthError) {
       console.error('Error updating auth metadata:', updateAuthError)
     }
+
+    // Ensure user record exists (fallback for missing trigger)
+    await ensureUserExists(user.id, user.email || '', {
+      full_name: fullName || user.user_metadata?.full_name,
+      industry: industry || user.user_metadata?.industry,
+    })
 
     // Update users table
     const { error: updateUserError } = await supabase

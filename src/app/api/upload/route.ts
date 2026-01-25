@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
       duplicatesRemoved = result.removed.length
     }
 
-    // Create upload record in database
+    // Create upload record in database (store leads for retry capability)
     const { data: job, error: jobError } = await supabase
       .from('upload_history')
       .insert({
@@ -106,6 +106,9 @@ export async function POST(request: NextRequest) {
         dnc_blocked: 0,
         caution_leads: 0,
         duplicates_removed: duplicatesRemoved,
+        // Store leads temporarily for retry functionality
+        pending_leads: processedLeads,
+        retry_count: 0,
       })
       .select()
       .single()

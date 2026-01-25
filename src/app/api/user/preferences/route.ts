@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { ensureUserExists } from '@/lib/supabase/admin'
 
 // ============================================================================
 // GET /api/user/preferences
@@ -19,11 +20,31 @@ export async function GET() {
       )
     }
 
-    const { data: userData, error: userError } = await supabase
+    let { data: userData, error: userError } = await supabase
       .from('users')
       .select('preferences')
       .eq('id', user.id)
       .single()
+
+    // If user record doesn't exist, create it (fallback for missing trigger)
+    if (userError?.code === 'PGRST116' || !userData) {
+      console.log('[Preferences] User record missing, creating fallback...')
+      await ensureUserExists(user.id, user.email || '', {
+        full_name: user.user_metadata?.full_name,
+        avatar_url: user.user_metadata?.avatar_url,
+        industry: user.user_metadata?.industry,
+      })
+
+      // Retry fetch after creating user
+      const retry = await supabase
+        .from('users')
+        .select('preferences')
+        .eq('id', user.id)
+        .single()
+
+      userData = retry.data
+      userError = retry.error
+    }
 
     if (userError) {
       console.error('Error fetching preferences:', userError)
@@ -76,11 +97,31 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Get current preferences
-    const { data: userData, error: fetchError } = await supabase
+    let { data: userData, error: fetchError } = await supabase
       .from('users')
       .select('preferences')
       .eq('id', user.id)
       .single()
+
+    // If user record doesn't exist, create it (fallback for missing trigger)
+    if (fetchError?.code === 'PGRST116' || !userData) {
+      console.log('[Preferences PATCH] User record missing, creating fallback...')
+      await ensureUserExists(user.id, user.email || '', {
+        full_name: user.user_metadata?.full_name,
+        avatar_url: user.user_metadata?.avatar_url,
+        industry: user.user_metadata?.industry,
+      })
+
+      // Retry fetch after creating user
+      const retry = await supabase
+        .from('users')
+        .select('preferences')
+        .eq('id', user.id)
+        .single()
+
+      userData = retry.data
+      fetchError = retry.error
+    }
 
     if (fetchError) {
       console.error('Error fetching current preferences:', fetchError)

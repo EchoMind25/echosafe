@@ -319,7 +319,7 @@ export async function POST(
         console.error('AI insights generation failed (non-blocking):', error)
       }
 
-      // Update upload with results from summary
+      // Update upload with results from summary (clear pending_leads to save storage)
       await supabase
         .from('upload_history')
         .update({
@@ -329,6 +329,8 @@ export async function POST(
           caution_leads: summary.caution_leads,
           duplicates_removed: summary.duplicates_removed,
           ai_insights: aiInsights,
+          pending_leads: null, // Clear stored leads after successful processing
+          completed_at: new Date().toISOString(),
         })
         .eq('id', jobId)
 
@@ -445,7 +447,7 @@ export async function POST(
           console.error('AI insights generation failed (non-blocking):', error)
         }
 
-        // Update upload with results
+        // Update upload with results (clear pending_leads to save storage)
         await supabase
           .from('upload_history')
           .update({
@@ -454,6 +456,8 @@ export async function POST(
             dnc_blocked: dncLeads?.length || 0,
             caution_leads: riskyLeads?.length || 0,
             ai_insights: aiInsights,
+            pending_leads: null, // Clear stored leads after successful processing
+            completed_at: new Date().toISOString(),
           })
           .eq('id', jobId)
 
