@@ -115,7 +115,7 @@ export async function POST(
     // Invoke Supabase Edge Function (fire-and-forget)
     const adminClient = createAdminClient()
     adminClient.functions
-      .invoke('dnc-scrub', { body: scrubPayload })
+      .invoke('DNC-scrub', { body: scrubPayload })
       .then(({ error }) => {
         if (error) {
           console.error('Edge Function invocation error on retry:', error)

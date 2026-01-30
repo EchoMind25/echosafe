@@ -276,7 +276,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     }
 
     // Invoke edge function to reprocess
-    const { error: fnError } = await supabase.functions.invoke('process-ftc-change-list', {
+    const { error: fnError } = await supabase.functions.invoke('process-ftc-change-log', {
       body: {
         change_list_id: id,
         change_type: changeList.change_type,

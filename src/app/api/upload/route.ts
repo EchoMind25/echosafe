@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
     // Use admin client so the service role key authorizes the invocation
     const adminClient = createAdminClient()
     adminClient.functions
-      .invoke('dnc-scrub', { body: scrubPayload })
+      .invoke('DNC-scrub', { body: scrubPayload })
       .then(({ error }) => {
         if (error) {
           console.error('Edge Function invocation error:', error)

@@ -212,7 +212,7 @@ export default function FtcChangeListUpload({
         .eq('id', changeList.id)
 
       // Invoke Edge Function for background processing
-      const { error: fnError } = await supabase.functions.invoke('process-ftc-change-list', {
+      const { error: fnError } = await supabase.functions.invoke('process-ftc-change-log', {
         body: {
           change_list_id: changeList.id,
           change_type: changeType,
