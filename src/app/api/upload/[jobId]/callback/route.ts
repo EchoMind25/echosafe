@@ -1,3 +1,10 @@
+// ============================================================================
+// DEPRECATED: This callback endpoint is no longer used by the new flow.
+// DNC scrubbing is now handled by the Supabase Edge Function `dnc-scrub`,
+// which writes results directly to the database.
+// This file is kept for backwards compatibility with any in-flight N8N jobs.
+// ============================================================================
+
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { ProcessedLead } from '@/types/upload'

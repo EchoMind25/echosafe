@@ -4,14 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { removeDuplicates } from '@/lib/utils/duplicate-detector'
 import { getTrialStatusDirect, updateTrialUsageDirect } from '@/lib/trial/server'
 import { canUserUploadLeads } from '@/lib/trial'
-import type { ParsedLead, UploadOptions, N8NWebhookRequest } from '@/types/upload'
-
-// ============================================================================
-// CONSTANTS
-// ============================================================================
-
-const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://dncscrub.app.n8n.cloud/webhook/86fe5f5e-9ccd-4e3b-a247-971cdd50d529'
-const N8N_TIMEOUT_MS = 30000 // 30 second timeout for initial webhook response
+import type { ParsedLead, UploadOptions, DncScrubRequest } from '@/types/upload'
 
 // ============================================================================
 // POST - Start scrubbing job
@@ -121,8 +114,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Prepare N8N webhook payload - PRIVACY FIRST: minimum data only
-    const webhookPayload: N8NWebhookRequest = {
+    // Prepare Edge Function payload
+    const scrubPayload: DncScrubRequest = {
       job_id: job.id,
       user_id: user.id,
       leads: processedLeads.map(lead => ({
@@ -135,56 +128,37 @@ export async function POST(request: NextRequest) {
         state: lead.state,
         zip_code: lead.zip_code,
       })),
-      check_duplicates: options.removeDuplicates ?? true,
-      timestamp: Date.now(),
-      callback_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://echosafe.app'}/api/upload/${job.id}/callback`,
     }
 
-    // Send to N8N webhook (async - don't wait for completion)
-    // Use AbortController for timeout and admin client for async updates
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), N8N_TIMEOUT_MS)
-    const jobId = job.id // Capture for async callback
-
-    fetch(N8N_WEBHOOK_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(webhookPayload),
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        clearTimeout(timeoutId)
-        if (!response.ok) {
-          console.error('N8N webhook error:', response.status, await response.text())
-          // Use admin client for async callback (original client may be closed)
-          const adminClient = createAdminClient()
-          await adminClient
+    // Invoke Supabase Edge Function (fire-and-forget)
+    // Use admin client so the service role key authorizes the invocation
+    const adminClient = createAdminClient()
+    adminClient.functions
+      .invoke('dnc-scrub', { body: scrubPayload })
+      .then(({ error }) => {
+        if (error) {
+          console.error('Edge Function invocation error:', error)
+          // The Edge Function itself marks the job as failed on internal errors,
+          // but if the invocation itself fails we need to mark it here.
+          createAdminClient()
             .from('upload_history')
             .update({
               status: 'failed',
-              error_message: `Processing service returned error: ${response.status}`,
+              error_message: `Edge Function invocation failed: ${error.message}`,
             })
-            .eq('id', jobId)
+            .eq('id', job.id)
         }
-        // Status is already 'processing' from initial insert
       })
-      .catch(async (error) => {
-        clearTimeout(timeoutId)
-        const errorMessage = error.name === 'AbortError'
-          ? 'Processing service timeout - job may still complete'
-          : 'Failed to connect to processing service'
-        console.error('N8N webhook error:', error)
-        // Use admin client for async callback
-        const adminClient = createAdminClient()
-        await adminClient
+      .catch(async (error: Error) => {
+        console.error('Edge Function invocation error:', error)
+        const fallbackAdmin = createAdminClient()
+        await fallbackAdmin
           .from('upload_history')
           .update({
-            status: error.name === 'AbortError' ? 'processing' : 'failed',
-            error_message: errorMessage,
+            status: 'failed',
+            error_message: 'Failed to invoke processing service',
           })
-          .eq('id', jobId)
+          .eq('id', job.id)
       })
 
     // Log analytics event

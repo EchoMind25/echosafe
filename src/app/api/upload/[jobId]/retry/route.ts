@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import type { ParsedLead, N8NWebhookRequest } from '@/types/upload'
+import type { ParsedLead, DncScrubRequest } from '@/types/upload'
 
 // ============================================================================
 // CONSTANTS
 // ============================================================================
 
-const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'https://dncscrub.app.n8n.cloud/webhook/86fe5f5e-9ccd-4e3b-a247-971cdd50d529'
-const N8N_TIMEOUT_MS = 30000
 const MAX_RETRIES = 3
 
 // ============================================================================
@@ -98,8 +96,8 @@ export async function POST(
       )
     }
 
-    // Prepare N8N webhook payload
-    const webhookPayload: N8NWebhookRequest = {
+    // Prepare Edge Function payload
+    const scrubPayload: DncScrubRequest = {
       job_id: jobId,
       user_id: user.id,
       leads: pendingLeads.map(lead => ({
@@ -112,49 +110,32 @@ export async function POST(
         state: lead.state,
         zip_code: lead.zip_code,
       })),
-      check_duplicates: false, // Already processed duplicates
-      timestamp: Date.now(),
-      callback_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://echosafe.app'}/api/upload/${jobId}/callback`,
     }
 
-    // Send to N8N webhook (async)
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), N8N_TIMEOUT_MS)
-
-    fetch(N8N_WEBHOOK_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(webhookPayload),
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        clearTimeout(timeoutId)
-        if (!response.ok) {
-          console.error('N8N webhook error on retry:', response.status, await response.text())
-          const adminClient = createAdminClient()
-          await adminClient
+    // Invoke Supabase Edge Function (fire-and-forget)
+    const adminClient = createAdminClient()
+    adminClient.functions
+      .invoke('dnc-scrub', { body: scrubPayload })
+      .then(({ error }) => {
+        if (error) {
+          console.error('Edge Function invocation error on retry:', error)
+          createAdminClient()
             .from('upload_history')
             .update({
               status: 'failed',
-              error_message: `Processing service returned error: ${response.status}`,
+              error_message: `Edge Function invocation failed: ${error.message}`,
             })
             .eq('id', jobId)
         }
       })
-      .catch(async (error) => {
-        clearTimeout(timeoutId)
-        const errorMessage = error.name === 'AbortError'
-          ? 'Processing service timeout - job may still complete'
-          : 'Failed to connect to processing service'
-        console.error('N8N webhook error on retry:', error)
-        const adminClient = createAdminClient()
-        await adminClient
+      .catch(async (error: Error) => {
+        console.error('Edge Function invocation error on retry:', error)
+        const fallbackAdmin = createAdminClient()
+        await fallbackAdmin
           .from('upload_history')
           .update({
-            status: error.name === 'AbortError' ? 'processing' : 'failed',
-            error_message: errorMessage,
+            status: 'failed',
+            error_message: 'Failed to invoke processing service',
           })
           .eq('id', jobId)
       })

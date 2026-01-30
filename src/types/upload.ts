@@ -106,40 +106,16 @@ export interface UploadOptions {
 }
 
 /**
- * N8N webhook request payload
+ * Payload sent to the Supabase Edge Function `dnc-scrub`
  * PRIVACY-FIRST: Only sends minimum required data
- * - user_id: Job isolation/security
  * - job_id: To update upload_history record
- * - leads: Phone numbers to check against DNC
- * - check_duplicates: Optional deduplication flag
- * - timestamp: Job start time for processing duration calculation
- * - callback_url: URL for N8N to POST results back to
+ * - user_id: Job isolation/security
+ * - leads: Lead data to check against DNC
  */
-export interface N8NWebhookRequest {
+export interface DncScrubRequest {
   job_id: string
   user_id: string
   leads: ParsedLead[]
-  check_duplicates?: boolean
-  timestamp?: number
-  callback_url?: string
-}
-
-/**
- * N8N webhook response
- */
-export interface N8NWebhookResponse {
-  success: boolean
-  job_id: string
-  summary: {
-    total_leads: number
-    duplicates_removed: number
-    clean_leads: number
-    dnc_blocked: number
-    caution_leads: number
-    processing_time_ms: number
-  }
-  results: ProcessedLead[]
-  error?: string
 }
 
 /**
