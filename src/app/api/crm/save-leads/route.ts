@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import type { LeadStatus } from '@/lib/supabase/types'
 
 interface ProcessedLead {
   phone_number: string
@@ -115,7 +116,7 @@ export async function POST(request: Request) {
         zip_code: lead.zip_code || null,
         source: `scrub:${job.filename || jobId}`,
         tags: ['scrubbed', 'clean'],
-        status: 'new',
+        status: 'new' as LeadStatus,
         risk_score: lead.risk_score,
       }))
 
