@@ -51,7 +51,6 @@ export default function ProcessingDisplay({
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isPolling, setIsPolling] = useState(true)
-  const [pollCount, setPollCount] = useState(0)
   const [isRetrying, setIsRetrying] = useState(false)
   const [retryError, setRetryError] = useState<string | null>(null)
 
@@ -63,7 +62,6 @@ export default function ProcessingDisplay({
 
       if (data.success && data.job) {
         setJobStatus(data.job)
-        setPollCount((c) => c + 1)
 
         // If completed or failed, stop polling
         if (data.job.status === 'completed') {
@@ -122,7 +120,6 @@ export default function ProcessingDisplay({
         // Reset state and start polling again
         setError(null)
         setIsPolling(true)
-        setPollCount(0)
       } else {
         setRetryError(data.message || 'Failed to retry')
       }
