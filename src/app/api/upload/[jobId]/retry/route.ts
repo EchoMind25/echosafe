@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { ParsedLead, DncScrubRequest } from '@/types/upload'
@@ -8,6 +8,9 @@ import type { ParsedLead, DncScrubRequest } from '@/types/upload'
 // ============================================================================
 
 const MAX_RETRIES = 3
+
+// Allow enough time for the edge function invocation to complete
+export const maxDuration = 60
 
 // ============================================================================
 // POST - Retry a failed job
@@ -124,34 +127,6 @@ export async function POST(
       })),
     }
 
-    // Invoke Supabase Edge Function (fire-and-forget)
-    const adminClient = createAdminClient()
-    adminClient.functions
-      .invoke('DNC-scrub', { body: scrubPayload })
-      .then(({ error }) => {
-        if (error) {
-          console.error('Edge Function invocation error on retry:', error)
-          createAdminClient()
-            .from('upload_history')
-            .update({
-              status: 'failed',
-              error_message: `Edge Function invocation failed: ${error.message}`,
-            })
-            .eq('id', jobId)
-        }
-      })
-      .catch(async (error: Error) => {
-        console.error('Edge Function invocation error on retry:', error)
-        const fallbackAdmin = createAdminClient()
-        await fallbackAdmin
-          .from('upload_history')
-          .update({
-            status: 'failed',
-            error_message: 'Failed to invoke processing service',
-          })
-          .eq('id', jobId)
-      })
-
     // Log analytics event
     await supabase.from('analytics_events').insert({
       user_id: user.id,
@@ -161,6 +136,44 @@ export async function POST(
         retry_count: retryCount + 1,
         total_leads: pendingLeads.length,
       },
+    })
+
+    // Invoke Supabase Edge Function AFTER the response is sent.
+    // after() keeps the serverless function alive so the invocation
+    // actually completes on Vercel.
+    after(async () => {
+      try {
+        const adminClient = createAdminClient()
+        const { error } = await adminClient.functions.invoke('DNC-scrub', {
+          body: scrubPayload,
+        })
+
+        if (error) {
+          console.error('Edge Function invocation error on retry:', error)
+          const fallbackAdmin = createAdminClient()
+          await fallbackAdmin
+            .from('upload_history')
+            .update({
+              status: 'failed',
+              error_message: `Edge Function invocation failed: ${error.message}`,
+            })
+            .eq('id', jobId)
+        }
+      } catch (err) {
+        console.error('Edge Function invocation error on retry:', err)
+        try {
+          const fallbackAdmin = createAdminClient()
+          await fallbackAdmin
+            .from('upload_history')
+            .update({
+              status: 'failed',
+              error_message: 'Failed to invoke processing service',
+            })
+            .eq('id', jobId)
+        } catch (updateErr) {
+          console.error('Failed to mark job as failed:', updateErr)
+        }
+      }
     })
 
     return NextResponse.json({

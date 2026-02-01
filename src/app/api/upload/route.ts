@@ -1,10 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { removeDuplicates } from '@/lib/utils/duplicate-detector'
 import { getTrialStatusDirect, updateTrialUsageDirect } from '@/lib/trial/server'
 import { canUserUploadLeads } from '@/lib/trial'
 import type { ParsedLead, UploadOptions, DncScrubRequest } from '@/types/upload'
+
+// Allow enough time for the edge function invocation to complete
+export const maxDuration = 60
 
 // ============================================================================
 // POST - Start scrubbing job
@@ -130,37 +133,6 @@ export async function POST(request: NextRequest) {
       })),
     }
 
-    // Invoke Supabase Edge Function (fire-and-forget)
-    // Use admin client so the service role key authorizes the invocation
-    const adminClient = createAdminClient()
-    adminClient.functions
-      .invoke('DNC-scrub', { body: scrubPayload })
-      .then(({ error }) => {
-        if (error) {
-          console.error('Edge Function invocation error:', error)
-          // The Edge Function itself marks the job as failed on internal errors,
-          // but if the invocation itself fails we need to mark it here.
-          createAdminClient()
-            .from('upload_history')
-            .update({
-              status: 'failed',
-              error_message: `Edge Function invocation failed: ${error.message}`,
-            })
-            .eq('id', job.id)
-        }
-      })
-      .catch(async (error: Error) => {
-        console.error('Edge Function invocation error:', error)
-        const fallbackAdmin = createAdminClient()
-        await fallbackAdmin
-          .from('upload_history')
-          .update({
-            status: 'failed',
-            error_message: 'Failed to invoke processing service',
-          })
-          .eq('id', job.id)
-      })
-
     // Log analytics event
     await supabase.from('analytics_events').insert({
       user_id: user.id,
@@ -174,13 +146,55 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // =========================================================================
-    // INCREMENT TRIAL USAGE
-    // Track this upload against trial limits (for trialing users only)
-    // =========================================================================
-    if (trialStatus?.isOnTrial) {
-      await updateTrialUsageDirect(user.id, processedLeads.length)
-    }
+    // Invoke Supabase Edge Function and increment trial usage AFTER the
+    // response is sent. after() keeps the serverless function alive so
+    // the invocation actually completes (fire-and-forget promises are
+    // killed on Vercel once the response is returned).
+    const userId = user.id
+    const leadCount = processedLeads.length
+    const jobId = job.id
+    const isOnTrial = trialStatus?.isOnTrial ?? false
+
+    after(async () => {
+      try {
+        const adminClient = createAdminClient()
+        const { error } = await adminClient.functions.invoke('DNC-scrub', {
+          body: scrubPayload,
+        })
+
+        if (error) {
+          console.error('Edge Function invocation error:', error)
+          const fallbackAdmin = createAdminClient()
+          await fallbackAdmin
+            .from('upload_history')
+            .update({
+              status: 'failed',
+              error_message: `Edge Function invocation failed: ${error.message}`,
+            })
+            .eq('id', jobId)
+          return
+        }
+
+        // Only increment trial usage after a successful invocation
+        if (isOnTrial) {
+          await updateTrialUsageDirect(userId, leadCount)
+        }
+      } catch (err) {
+        console.error('Edge Function invocation error:', err)
+        try {
+          const fallbackAdmin = createAdminClient()
+          await fallbackAdmin
+            .from('upload_history')
+            .update({
+              status: 'failed',
+              error_message: 'Failed to invoke processing service',
+            })
+            .eq('id', jobId)
+        } catch (updateErr) {
+          console.error('Failed to mark job as failed:', updateErr)
+        }
+      }
+    })
 
     return NextResponse.json({
       success: true,
