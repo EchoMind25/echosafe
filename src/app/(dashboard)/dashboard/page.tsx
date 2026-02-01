@@ -52,7 +52,7 @@ export default function DashboardPage() {
   })
 
   // Fetch trial status for trial banner
-  const { trialStatus } = useTrialStatus()
+  const { trialStatus, isAdmin } = useTrialStatus()
 
   useEffect(() => {
     async function fetchData() {
@@ -161,8 +161,8 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Trial Status Banner - Show for trialing users */}
-      {trialStatus && trialStatus.isOnTrial && (
+      {/* Trial Status Banner - Show for trialing users (hide for admins) */}
+      {trialStatus && trialStatus.isOnTrial && !isAdmin && (
         <TrialStatusBanner trialStatus={trialStatus} />
       )}
 

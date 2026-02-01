@@ -656,7 +656,7 @@ serve(async (req) => {
         dnc_blocked: stats.blocked,
         caution_leads: stats.caution,
         ai_insights: aiInsights,
-        pending_leads: null, // Clear stored leads after processing
+        pending_leads: processedLeads, // Store processed results for download
         completed_at: new Date().toISOString(),
       })
       .eq('id', job_id)
