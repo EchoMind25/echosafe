@@ -48,12 +48,24 @@ export async function POST(
       )
     }
 
-    // Check if job can be retried
-    if (job.status !== 'failed') {
+    // Check if job can be retried (failed or stuck in processing)
+    if (job.status === 'completed') {
       return NextResponse.json(
-        { success: false, message: 'Only failed jobs can be retried' },
+        { success: false, message: 'Completed jobs cannot be retried' },
         { status: 400 }
       )
+    }
+
+    if (job.status === 'processing') {
+      // Only allow retry if the job has been stuck for at least 2 minutes
+      const createdAt = new Date(job.last_retry_at || job.created_at).getTime()
+      const stuckMinutes = (Date.now() - createdAt) / 1000 / 60
+      if (stuckMinutes < 2) {
+        return NextResponse.json(
+          { success: false, message: 'Job is still processing. Please wait before retrying.' },
+          { status: 400 }
+        )
+      }
     }
 
     // Check retry limit
