@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import type { LeadStatus } from '@/lib/supabase/types'
+import type { Database } from '@/lib/supabase/types'
+
+type CrmLeadInsert = Database['public']['Tables']['crm_leads']['Insert']
 
 interface ProcessedLead {
   phone_number: string
@@ -104,7 +106,7 @@ export async function POST(request: Request) {
     let errors = 0
 
     for (let i = 0; i < newLeads.length; i += BATCH_SIZE) {
-      const batch = newLeads.slice(i, i + BATCH_SIZE).map(lead => ({
+      const batch: CrmLeadInsert[] = newLeads.slice(i, i + BATCH_SIZE).map(lead => ({
         user_id: user.id,
         phone_number: lead.phone_number,
         first_name: lead.first_name || null,
@@ -116,7 +118,7 @@ export async function POST(request: Request) {
         zip_code: lead.zip_code || null,
         source: `scrub:${job.filename || jobId}`,
         tags: ['scrubbed', 'clean'],
-        status: 'new' as LeadStatus,
+        status: 'new',
         risk_score: lead.risk_score,
       }))
 
