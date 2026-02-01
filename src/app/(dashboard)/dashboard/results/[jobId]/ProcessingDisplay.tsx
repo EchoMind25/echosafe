@@ -63,6 +63,7 @@ export default function ProcessingDisplay({
 
       if (data.success && data.job) {
         setJobStatus(data.job)
+        setPollCount((c) => c + 1)
 
         // If completed or failed, stop polling
         if (data.job.status === 'completed') {
@@ -89,22 +90,21 @@ export default function ProcessingDisplay({
 
     // Initial fetch
     fetchStatus()
-    setPollCount((c) => c + 1)
 
     // Poll every 2 seconds
-    const interval = setInterval(() => {
-      fetchStatus()
-      setPollCount((c) => c + 1)
-    }, 2000)
+    const interval = setInterval(fetchStatus, 2000)
 
-    // Stop polling after 5 minutes (150 polls)
-    if (pollCount > 150) {
+    // Stop polling after 5 minutes
+    const timeout = setTimeout(() => {
       setIsPolling(false)
       setError('Processing is taking longer than expected. Please check back later.')
-    }
+    }, 300000)
 
-    return () => clearInterval(interval)
-  }, [isPolling, fetchStatus, pollCount])
+    return () => {
+      clearInterval(interval)
+      clearTimeout(timeout)
+    }
+  }, [isPolling, fetchStatus])
 
   // Handle retry
   const handleRetry = async () => {

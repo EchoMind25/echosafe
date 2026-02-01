@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getTrialStatusDirect } from '@/lib/trial/server'
 
 // ============================================================================
@@ -20,6 +21,16 @@ export async function GET() {
       )
     }
 
+    // Check admin status (use admin client to bypass RLS)
+    const adminClient = createAdminClient()
+    const { data: profile } = await adminClient
+      .from('users')
+      .select('is_admin')
+      .eq('id', user.id)
+      .single()
+
+    const isAdmin = profile?.is_admin === true
+
     // Get trial status
     const trialStatus = await getTrialStatusDirect(user.id)
 
@@ -33,6 +44,7 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       data: trialStatus,
+      isAdmin,
     })
 
   } catch (error) {

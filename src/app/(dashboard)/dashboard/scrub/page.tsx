@@ -47,7 +47,7 @@ export default function ScrubPage() {
   const router = useRouter()
 
   // Fetch trial status for limit checking
-  const { trialStatus } = useTrialStatus()
+  const { trialStatus, isAdmin } = useTrialStatus()
 
   // Upload state
   const [state, setState] = useState<UploadState>({
@@ -145,7 +145,7 @@ export default function ScrubPage() {
     if (trialStatus) {
       const leadCount = state.parseResult.stats.validRows -
         (options.removeDuplicates ? state.parseResult.stats.duplicateCount : 0)
-      const uploadCheck = canUserUploadLeads(trialStatus, leadCount)
+      const uploadCheck = canUserUploadLeads(trialStatus, leadCount, isAdmin)
 
       if (!uploadCheck.canUpload) {
         setState((prev) => ({
@@ -207,7 +207,7 @@ export default function ScrubPage() {
     } finally {
       setIsSubmitting(false)
     }
-  }, [state.parseResult, state.file, options, router, trialStatus])
+  }, [state.parseResult, state.file, options, router, trialStatus, isAdmin])
 
   // ============================================================================
   // RENDER
@@ -215,7 +215,7 @@ export default function ScrubPage() {
 
   // Calculate if the current file would exceed trial limits
   const getTrialWarning = () => {
-    if (!trialStatus || !trialStatus.isOnTrial || !state.parseResult) return null
+    if (!trialStatus || !trialStatus.isOnTrial || !state.parseResult || isAdmin) return null
 
     const leadCount = state.parseResult.stats.validRows -
       (options.removeDuplicates ? state.parseResult.stats.duplicateCount : 0)
@@ -252,8 +252,8 @@ export default function ScrubPage() {
 
   return (
     <div className="space-y-6">
-      {/* Trial Status Banner - Show for trialing users */}
-      {trialStatus && trialStatus.isOnTrial && (
+      {/* Trial Status Banner - Show for trialing users (not admins) */}
+      {trialStatus && trialStatus.isOnTrial && !isAdmin && (
         <TrialStatusBanner trialStatus={trialStatus} variant="compact" />
       )}
 

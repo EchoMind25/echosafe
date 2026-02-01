@@ -216,6 +216,7 @@ export function TrialStatusBanner({
  */
 export function useTrialStatus() {
   const [trialStatus, setTrialStatus] = useState<TrialStatus | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -227,6 +228,7 @@ export function useTrialStatus() {
           const data = await response.json()
           if (data.success) {
             setTrialStatus(data.data)
+            setIsAdmin(data.isAdmin === true)
           }
         }
       } catch (err) {
@@ -240,5 +242,5 @@ export function useTrialStatus() {
     fetchTrialStatus()
   }, [])
 
-  return { trialStatus, isLoading, error }
+  return { trialStatus, isAdmin, isLoading, error }
 }

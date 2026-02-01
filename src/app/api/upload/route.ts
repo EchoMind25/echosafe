@@ -54,7 +54,8 @@ export async function POST(request: NextRequest) {
     // CHECK ADMIN STATUS & TRIAL ABUSE PREVENTION
     // Admins bypass all trial/subscription limits
     // =========================================================================
-    const { data: profile } = await supabase
+    const adminClient = createAdminClient()
+    const { data: profile } = await adminClient
       .from('users')
       .select('is_admin')
       .eq('id', user.id)
