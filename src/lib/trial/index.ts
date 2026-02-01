@@ -101,8 +101,19 @@ export function calculateTrialStatus(userData: {
  */
 export function canUserUploadLeads(
   trialStatus: TrialStatus,
-  leadCount: number
+  leadCount: number,
+  isAdmin = false
 ): CanUploadResult {
+  // Admins bypass all trial/subscription limits
+  if (isAdmin) {
+    return {
+      canUpload: true,
+      reason: 'Admin access',
+      leadsWouldUse: leadCount,
+      leadsRemaining: 999999,
+    }
+  }
+
   // Active subscribers can always upload
   if (trialStatus.subscriptionStatus === 'active') {
     return {

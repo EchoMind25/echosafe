@@ -51,13 +51,21 @@ export async function POST(request: NextRequest) {
     }
 
     // =========================================================================
-    // TRIAL ABUSE PREVENTION CHECK
-    // Check if user can upload based on trial limits (7 days, 1000 leads, 5 uploads)
+    // CHECK ADMIN STATUS & TRIAL ABUSE PREVENTION
+    // Admins bypass all trial/subscription limits
     // =========================================================================
+    const { data: profile } = await supabase
+      .from('users')
+      .select('is_admin')
+      .eq('id', user.id)
+      .single()
+
+    const isAdmin = profile?.is_admin === true
+
     const trialStatus = await getTrialStatusDirect(user.id)
 
     if (trialStatus) {
-      const uploadCheck = canUserUploadLeads(trialStatus, leads.length)
+      const uploadCheck = canUserUploadLeads(trialStatus, leads.length, isAdmin)
 
       if (!uploadCheck.canUpload) {
         return NextResponse.json(
@@ -153,7 +161,7 @@ export async function POST(request: NextRequest) {
     const userId = user.id
     const leadCount = processedLeads.length
     const jobId = job.id
-    const isOnTrial = trialStatus?.isOnTrial ?? false
+    const isOnTrial = !isAdmin && (trialStatus?.isOnTrial ?? false)
 
     after(async () => {
       try {
